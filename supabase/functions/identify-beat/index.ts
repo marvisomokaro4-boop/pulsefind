@@ -367,7 +367,7 @@ serve(async (req) => {
     if (spotifyToken) {
       console.log('Fetching Spotify track details...');
       matches = await Promise.all(matches.map(async (track: any) => {
-        if (track.spotify_id && !track.album_cover_url) {
+        if (track.spotify_id) {
           try {
             const { artworkUrl, previewUrl } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
             return { 
