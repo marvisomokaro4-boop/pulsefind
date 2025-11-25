@@ -56,13 +56,11 @@ const SongResults = ({ matches }: SongResultsProps) => {
         </p>
       </div>
 
-      {lowConfidenceMatches.length > 0 && (
-        <ConfidenceFilter
-          showLowConfidence={showLowConfidence}
-          onToggle={setShowLowConfidence}
-          lowConfidenceCount={lowConfidenceMatches.length}
-        />
-      )}
+      <ConfidenceFilter
+        showLowConfidence={showLowConfidence}
+        onToggle={setShowLowConfidence}
+        lowConfidenceCount={lowConfidenceMatches.length}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {displayedMatches.map((match, index) => (
