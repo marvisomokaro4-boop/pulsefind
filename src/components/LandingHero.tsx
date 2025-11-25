@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Music2, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { PulseFindLogo } from "@/components/PulseFindLogo";
 
 export const LandingHero = () => {
   const navigate = useNavigate();
@@ -19,10 +20,8 @@ export const LandingHero = () => {
             </Badge>
           </div>
 
-          <div className="flex justify-center mb-6">
-            <div className="p-4 rounded-2xl bg-card border border-primary/30 shadow-[0_0_30px_hsl(180_100%_50%/0.3)]">
-              <Music2 className="w-16 h-16 text-primary" />
-            </div>
+          <div className="flex justify-center mb-8">
+            <PulseFindLogo size="xl" showText={false} />
           </div>
 
           <h1 className="text-6xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent">

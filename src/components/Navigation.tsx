@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { PulseFindLogo } from "@/components/PulseFindLogo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,12 +76,11 @@ export const Navigation = () => {
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <NavLink
-          to="/"
-          className="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+        <NavLink 
+          to="/" 
+          className="hover:opacity-80 transition-opacity"
         >
-          <Music className="h-6 w-6 text-primary" />
-          <span>PulseFind</span>
+          <PulseFindLogo size="md" />
         </NavLink>
 
         {/* Desktop Navigation */}
@@ -148,11 +148,8 @@ export const Navigation = () => {
           </SheetTrigger>
           <SheetContent side="right" className="w-64 bg-card">
             <div className="flex flex-col gap-4 mt-8">
-              <div className="flex items-center gap-2 px-4 pb-4 border-b border-border">
-                <Music className="h-5 w-5 text-primary" />
-                <span className="font-bold text-lg bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  PulseFind
-                </span>
+              <div className="px-4 pb-4 border-b border-border">
+                <PulseFindLogo size="sm" />
               </div>
 
               {user && plan && (

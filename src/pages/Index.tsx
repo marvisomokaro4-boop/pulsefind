@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { LandingHero } from "@/components/LandingHero";
 import { LandingFeatures } from "@/components/LandingFeatures";
 import { LandingCTA } from "@/components/LandingCTA";
+import { PulseFindLogo } from "@/components/PulseFindLogo";
 
 interface Match {
   title: string;
@@ -117,7 +118,7 @@ const Index = () => {
       {/* Top Navigation */}
       <div className="border-b border-border bg-card/50 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">PulseFind</h2>
+          <PulseFindLogo size="sm" />
           <div className="flex gap-2 items-center">
             {!isLoading && (
               <Button
@@ -179,10 +180,8 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-primary opacity-10" />
         <div className="container mx-auto px-4 py-20 relative">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="flex justify-center mb-6">
-              <div className="p-4 rounded-2xl bg-card border border-primary/30 shadow-[0_0_30px_hsl(180_100%_50%/0.3)]">
-                <Music2 className="w-16 h-16 text-primary" />
-              </div>
+            <div className="flex justify-center mb-8">
+              <PulseFindLogo size="xl" showText={false} />
             </div>
             <h1 className="text-6xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent">
               PulseFind
