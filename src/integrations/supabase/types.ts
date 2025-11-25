@@ -14,7 +14,112 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      beat_matches: {
+        Row: {
+          album: string | null
+          apple_music_id: string | null
+          apple_music_url: string | null
+          artist: string
+          beat_id: string
+          confidence: number | null
+          id: string
+          identified_at: string | null
+          share_url: string | null
+          song_title: string
+          source: string
+          spotify_id: string | null
+          spotify_url: string | null
+        }
+        Insert: {
+          album?: string | null
+          apple_music_id?: string | null
+          apple_music_url?: string | null
+          artist: string
+          beat_id: string
+          confidence?: number | null
+          id?: string
+          identified_at?: string | null
+          share_url?: string | null
+          song_title: string
+          source: string
+          spotify_id?: string | null
+          spotify_url?: string | null
+        }
+        Update: {
+          album?: string | null
+          apple_music_id?: string | null
+          apple_music_url?: string | null
+          artist?: string
+          beat_id?: string
+          confidence?: number | null
+          id?: string
+          identified_at?: string | null
+          share_url?: string | null
+          song_title?: string
+          source?: string
+          spotify_id?: string | null
+          spotify_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beat_matches_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      beats: {
+        Row: {
+          file_name: string
+          file_size: number
+          id: string
+          uploaded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          file_name: string
+          file_size: number
+          id?: string
+          uploaded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          file_name?: string
+          file_size?: number
+          id?: string
+          uploaded_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beats_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
