@@ -46,6 +46,8 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         
         if (refreshError || !newSession) {
           console.error('Session refresh failed:', refreshError);
+          // Sign out to clear stale session
+          await supabase.auth.signOut();
           setPlan('Free');
           setScansPerDay(3);
           setIsLoading(false);
@@ -58,20 +60,15 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       if (error) {
         console.error('Error checking subscription:', error);
         
-        // If we get an auth error, try to refresh the session
+        // If we get an auth error, the session is completely invalid
         if (error.message?.includes('Auth') || error.message?.includes('session')) {
-          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-          
-          if (!refreshError && refreshedSession) {
-            // Retry with refreshed session
-            const { data: retryData, error: retryError } = await supabase.functions.invoke('check-subscription');
-            if (!retryError && retryData) {
-              setPlan(retryData.plan || 'Free');
-              setScansPerDay(retryData.scans_per_day || 3);
-              setIsLoading(false);
-              return;
-            }
-          }
+          console.log('Invalid session detected, signing out...');
+          // Sign out to clear stale session and force fresh login
+          await supabase.auth.signOut();
+          setPlan('Free');
+          setScansPerDay(3);
+          setIsLoading(false);
+          return;
         }
         
         setPlan('Free');
