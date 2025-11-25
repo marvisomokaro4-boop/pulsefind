@@ -9,6 +9,9 @@ import BeatInput from "@/components/BeatInput";
 import SongResults from "@/components/SongResults";
 import BatchResults from "@/components/BatchResults";
 import { useToast } from "@/hooks/use-toast";
+import { LandingHero } from "@/components/LandingHero";
+import { LandingFeatures } from "@/components/LandingFeatures";
+import { LandingCTA } from "@/components/LandingCTA";
 
 interface Match {
   title: string;
@@ -46,9 +49,7 @@ const Index = () => {
   useEffect(() => {
     // Check authentication
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
+      if (session) {
         setUser(session.user);
         checkAdminStatus(session.user.id);
       }
@@ -57,11 +58,11 @@ const Index = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate("/auth");
-      } else {
+      if (session) {
         setUser(session.user);
         checkAdminStatus(session.user.id);
+      } else {
+        setUser(null);
       }
     });
 
@@ -99,10 +100,18 @@ const Index = () => {
     });
   };
 
+  // Show landing page for non-authenticated users
   if (!user) {
-    return null; // Will redirect to auth
+    return (
+      <main className="min-h-screen bg-background">
+        <LandingHero />
+        <LandingFeatures />
+        <LandingCTA />
+      </main>
+    );
   }
 
+  // Show app interface for authenticated users
   return (
     <main className="min-h-screen bg-background">
       {/* Top Navigation */}
