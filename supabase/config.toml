@@ -1,1 +1,7 @@
 project_id = "ohqliwunifcjjucafumi"
+
+[functions.search-songs-by-bpm]
+verify_jwt = false
+
+[functions.identify-beat]
+verify_jwt = false
