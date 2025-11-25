@@ -417,8 +417,8 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Sort by confidence (descending)
     results.sort((a, b) => b.confidence - a.confidence);
     
-    // Return top 10 matches (increased from 5 to accommodate more segments)
-    const topMatches = results.slice(0, 10);
+    // Return top 30 matches to show comprehensive results
+    const topMatches = results.slice(0, 30);
     
     console.log(`Returning ${topMatches.length} matches (filtered below 40% confidence)`);
     
