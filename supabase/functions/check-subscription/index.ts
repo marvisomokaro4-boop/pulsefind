@@ -43,30 +43,40 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // First check database for any active subscription (including manually assigned)
+    const { data: dbSubscription } = await supabaseClient
+      .from("user_subscriptions")
+      .select("*, subscription_plans(*)")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .gt("current_period_end", new Date().toISOString())
+      .single();
+
+    if (dbSubscription) {
+      logStep("Found active subscription in database", { 
+        plan: dbSubscription.subscription_plans.name,
+        scansPerDay: dbSubscription.subscription_plans.scans_per_day 
+      });
+      
+      return new Response(JSON.stringify({ 
+        subscribed: true,
+        plan: dbSubscription.subscription_plans.name,
+        scans_per_day: dbSubscription.subscription_plans.scans_per_day,
+        subscription_end: dbSubscription.current_period_end
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    logStep("No active database subscription found, checking Stripe");
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     
     if (customers.data.length === 0) {
-      logStep("No customer found, checking for free plan");
+      logStep("No Stripe customer found, returning Free plan");
       
-      // Get or assign free plan
-      const { data: subscription } = await supabaseClient
-        .from("user_subscriptions")
-        .select("*, subscription_plans(*)")
-        .eq("user_id", user.id)
-        .single();
-
-      if (subscription) {
-        return new Response(JSON.stringify({ 
-          subscribed: true,
-          plan: subscription.subscription_plans.name,
-          scans_per_day: subscription.subscription_plans.scans_per_day
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        });
-      }
-
       return new Response(JSON.stringify({ 
         subscribed: false,
         plan: "Free",
