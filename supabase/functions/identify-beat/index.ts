@@ -8,8 +8,8 @@ const corsHeaders = {
 // Helper function to get Spotify access token
 async function getSpotifyToken(): Promise<string | null> {
   try {
-    // Using Spotify's Client Credentials flow with a public client ID
-    const clientId = '6c22aaa3cdda4d9aa4fa9f8db7e219e2';
+    // Using Spotify's Client Credentials flow
+    const clientId = 'ea3bdfe7f2d24660b598b8a5c3d64470';
     const clientSecret = Deno.env.get('SPOTIFY_CLIENT_SECRET');
     
     if (!clientSecret) {
