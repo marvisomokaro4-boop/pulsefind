@@ -53,7 +53,14 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
   }
 
   try {
-    const audioData = new Uint8Array(arrayBuffer);
+    // Extract a sample from the audio (first 2MB which is ~15-20 seconds for most MP3s)
+    // ACRCloud recommends 10-20 seconds of audio for identification
+    const sampleSize = Math.min(arrayBuffer.byteLength, 2 * 1024 * 1024); // 2MB max
+    const audioSample = arrayBuffer.slice(0, sampleSize);
+    const audioData = new Uint8Array(audioSample);
+    
+    console.log(`Processing audio sample: ${sampleSize} bytes from ${arrayBuffer.byteLength} bytes total`);
+    
     const timestamp = Math.floor(Date.now() / 1000);
     const stringToSign = `POST\n/v1/identify\n${acrcloudAccessKey}\naudio\n1\n${timestamp}`;
     
@@ -78,7 +85,7 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
     const formData = new FormData();
-    const audioBlob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+    const audioBlob = new Blob([audioSample], { type: 'audio/mpeg' });
     formData.append('sample', audioBlob, fileName);
     formData.append('access_key', acrcloudAccessKey);
     formData.append('data_type', 'audio');
