@@ -40,7 +40,7 @@ async function getSpotifyToken(): Promise<string | null> {
 }
 
 // Helper function to get album artwork and preview URL from Spotify
-async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{ artworkUrl: string | null, previewUrl: string | null }> {
+async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{ artworkUrl: string | null, previewUrl: string | null, isAvailable: boolean }> {
   try {
     const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
       headers: {
@@ -48,9 +48,20 @@ async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{
       }
     });
     
-    if (!response.ok) return { artworkUrl: null, previewUrl: null };
+    if (!response.ok) {
+      console.error(`Spotify API error for track ${trackId}: ${response.status}`);
+      return { artworkUrl: null, previewUrl: null, isAvailable: false };
+    }
     
     const data = await response.json();
+    
+    // Check if track is available in any market
+    const isAvailable = data.available_markets && data.available_markets.length > 0;
+    
+    if (!isAvailable) {
+      console.log(`Track ${trackId} is not available in any market`);
+    }
+    
     const images = data.album?.images;
     
     // Get medium-sized image (typically 300x300)
@@ -61,10 +72,10 @@ async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{
     // Get preview URL (30-second MP3)
     const previewUrl = data.preview_url || null;
     
-    return { artworkUrl, previewUrl };
+    return { artworkUrl, previewUrl, isAvailable };
   } catch (error) {
     console.error('Error fetching Spotify track details:', error);
-    return { artworkUrl: null, previewUrl: null };
+    return { artworkUrl: null, previewUrl: null, isAvailable: false };
   }
 }
 
@@ -503,12 +514,16 @@ serve(async (req) => {
         
         if (track.spotify_id) {
           try {
-            const { artworkUrl, previewUrl } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
+            const { artworkUrl, previewUrl, isAvailable } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
             
-            // Construct platform URLs
-            const spotify_url = `https://open.spotify.com/track/${track.spotify_id}`;
+            // Only include Spotify URL if track is available
+            const spotify_url = isAvailable ? `https://open.spotify.com/track/${track.spotify_id}` : null;
             const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
             const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
+            
+            if (!isAvailable) {
+              console.log(`Warning: Track "${track.title}" by ${track.artist} is not available on Spotify in any market`);
+            }
             
             return { 
               ...track,
