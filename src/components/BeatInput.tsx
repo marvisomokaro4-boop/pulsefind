@@ -3,6 +3,7 @@ import { Upload, Loader2, Check, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Match {
   title: string;
@@ -77,6 +78,51 @@ const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
       }
 
       const data = await response.json();
+
+      // Save to database
+      if (data.success) {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Insert beat record
+          const { data: beatData, error: beatError } = await supabase
+            .from("beats")
+            .insert({
+              user_id: user.id,
+              file_name: file.name,
+              file_size: file.size,
+            })
+            .select()
+            .single();
+
+          if (beatError) {
+            console.error("Error saving beat:", beatError);
+          } else if (beatData && data.matches && data.matches.length > 0) {
+            // Insert matches
+            const matches = data.matches.map((match: any) => ({
+              beat_id: beatData.id,
+              song_title: match.title,
+              artist: match.artist,
+              album: match.album,
+              confidence: match.confidence,
+              source: match.source,
+              spotify_id: match.spotify_id,
+              spotify_url: match.spotify_url,
+              apple_music_id: match.apple_music_id,
+              apple_music_url: match.apple_music_url,
+              share_url: match.share_url,
+            }));
+
+            const { error: matchesError } = await supabase
+              .from("beat_matches")
+              .insert(matches);
+
+            if (matchesError) {
+              console.error("Error saving matches:", matchesError);
+            }
+          }
+        }
+      }
 
       if (data.success && data.matches && data.matches.length > 0) {
         onMatchesFound(data.matches);

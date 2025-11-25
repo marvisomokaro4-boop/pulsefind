@@ -1,7 +1,11 @@
-import { useState } from "react";
-import { Music2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Music2, LogOut, History as HistoryIcon } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import BeatInput from "@/components/BeatInput";
 import SongResults from "@/components/SongResults";
+import { useToast } from "@/hooks/use-toast";
 
 interface Match {
   title: string;
@@ -19,14 +23,73 @@ interface Match {
 const Index = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Check authentication
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate("/auth");
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/auth");
+      } else {
+        setUser(session.user);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const handleMatchesFound = (foundMatches: Match[]) => {
     setMatches(foundMatches);
     setHasSearched(true);
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast({
+      title: "Signed out",
+      description: "You've been successfully signed out.",
+    });
+  };
+
+  if (!user) {
+    return null; // Will redirect to auth
+  }
+
   return (
     <main className="min-h-screen bg-background">
+      {/* Top Navigation */}
+      <div className="border-b border-border bg-card/50 backdrop-blur">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <h2 className="text-lg font-semibold">BeatMatch</h2>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/history")}
+            >
+              <HistoryIcon className="w-4 h-4 mr-2" />
+              History
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-gradient-primary opacity-10" />
