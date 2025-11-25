@@ -64,6 +64,7 @@ export const Navigation = () => {
           onClick={() => mobile && setIsOpen(false)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           activeClassName="text-primary bg-primary/10 font-medium"
+          withPulseGlow={true}
         >
           <item.icon className="h-4 w-4" />
           <span>{item.label}</span>
