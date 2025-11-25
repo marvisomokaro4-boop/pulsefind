@@ -53,9 +53,10 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
   }
 
   try {
-    // Extract a sample from the audio (first 2MB which is ~15-20 seconds for most MP3s)
-    // ACRCloud recommends 10-20 seconds of audio for identification
-    const sampleSize = Math.min(arrayBuffer.byteLength, 2 * 1024 * 1024); // 2MB max
+    // Extract a sample from the audio (10-15 seconds which is what ACRCloud requires)
+    // For typical MP3s at 128-320kbps, 15 seconds is roughly 240-600KB
+    // We'll use 500KB as a safe upper limit
+    const sampleSize = Math.min(arrayBuffer.byteLength, 500 * 1024); // 500KB max (~15 seconds)
     const audioSample = arrayBuffer.slice(0, sampleSize);
     const audioData = new Uint8Array(audioSample);
     
