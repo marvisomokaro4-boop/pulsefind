@@ -84,7 +84,7 @@ async function searchAppleMusic(title: string, artist: string): Promise<string |
   try {
     const searchQuery = encodeURIComponent(`${title} ${artist}`);
     const response = await fetch(
-      `https://itunes.apple.com/search?term=${searchQuery}&media=music&entity=song&limit=5`
+      `https://itunes.apple.com/search?term=${searchQuery}&media=music&entity=song&limit=10`
     );
     
     if (!response.ok) {
@@ -102,23 +102,30 @@ async function searchAppleMusic(title: string, artist: string): Promise<string |
       const normalizedTitle = normalizeString(title);
       const normalizedArtist = normalizeString(artist);
       
-      // Find the best match
+      console.log(`iTunes Search found ${data.results.length} results for "${title}" by ${artist}`);
+      
+      // Find the best match with more lenient matching
       for (const result of data.results) {
         const resultTitle = normalizeString(result.trackName || '');
         const resultArtist = normalizeString(result.artistName || '');
         
-        // Check if title and artist match closely
-        if (resultTitle.includes(normalizedTitle) || normalizedTitle.includes(resultTitle)) {
-          if (resultArtist.includes(normalizedArtist) || normalizedArtist.includes(resultArtist)) {
-            console.log(`Found Apple Music match via iTunes Search: ${result.trackId} - "${result.trackName}" by ${result.artistName}`);
-            return result.trackId?.toString() || null;
-          }
+        // More lenient matching - check if either contains the other
+        const titleMatch = resultTitle.includes(normalizedTitle) || normalizedTitle.includes(resultTitle);
+        const artistMatch = resultArtist.includes(normalizedArtist) || normalizedArtist.includes(resultArtist);
+        
+        if (titleMatch && artistMatch) {
+          console.log(`✓ Found Apple Music match: "${result.trackName}" by ${result.artistName} (ID: ${result.trackId})`);
+          return result.trackId?.toString() || null;
         }
       }
       
-      // If no exact match found, log the first result for debugging
-      console.log(`No exact match found. First result was: "${data.results[0].trackName}" by ${data.results[0].artistName} (ID: ${data.results[0].trackId})`);
-      console.log(`Searched for: "${title}" by ${artist}`);
+      // If no match found, log first few results for debugging
+      console.log(`No exact match found. Top results were:`);
+      data.results.slice(0, 3).forEach((r: any) => {
+        console.log(`  - "${r.trackName}" by ${r.artistName} (ID: ${r.trackId})`);
+      });
+    } else {
+      console.log(`iTunes Search returned no results for "${title}" by ${artist}`);
     }
     
     return null;
