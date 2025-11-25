@@ -147,9 +147,8 @@ const History = () => {
                             {match.album && ` • ${match.album}`}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {match.source}
                             {match.confidence &&
-                              ` • ${(match.confidence * 100).toFixed(0)}% match`}
+                              `${match.confidence.toFixed(0)}% match`}
                           </p>
                         </div>
                         <div className="flex gap-2">
