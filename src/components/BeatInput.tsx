@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useNavigate } from "react-router-dom";
 import AnalysisProgress from "./AnalysisProgress";
 
 interface Match {
@@ -49,6 +51,8 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
   const [currentFileSize, setCurrentFileSize] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const { scansPerDay, refreshSubscription } = useSubscription();
+  const navigate = useNavigate();
 
   const processFile = async (file: File): Promise<BeatResult> => {
 
@@ -147,6 +151,57 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
     if (!files || files.length === 0) return;
 
     const filesArray = Array.from(files);
+
+    // Check scan limits
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to scan beats.",
+          variant: "destructive",
+        });
+        navigate('/auth');
+        return;
+      }
+
+      // Get today's usage
+      const { data: usageData } = await supabase.rpc('get_scan_usage', {
+        _user_id: user.id
+      });
+
+      if (usageData && usageData.length > 0) {
+        const { scan_count, scans_per_day } = usageData[0];
+        
+        // Check if unlimited (Elite tier)
+        if (scans_per_day !== -1 && scan_count >= scans_per_day) {
+          toast({
+            title: "Daily Limit Reached",
+            description: `You've used all ${scans_per_day} scans today. Upgrade for more scans!`,
+            variant: "destructive",
+          });
+          navigate('/pricing');
+          return;
+        }
+
+        // Increment scan count
+        const { data: canScan } = await supabase.rpc('increment_scan_count', {
+          _user_id: user.id
+        });
+
+        if (!canScan) {
+          toast({
+            title: "Daily Limit Reached",
+            description: "You've reached your daily scan limit. Upgrade to continue!",
+            variant: "destructive",
+          });
+          navigate('/pricing');
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking scan limits:', error);
+    }
 
     // Validate file types
     const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/m4a'];

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music2, LogOut, History as HistoryIcon, Shield } from "lucide-react";
+import { Music2, LogOut, History as HistoryIcon, Shield, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import BeatInput from "@/components/BeatInput";
 import SongResults from "@/components/SongResults";
 import BatchResults from "@/components/BatchResults";
@@ -39,6 +41,7 @@ const Index = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { plan, scansPerDay, isLoading } = useSubscription();
 
   useEffect(() => {
     // Check authentication
@@ -106,7 +109,26 @@ const Index = () => {
       <div className="border-b border-border bg-card/50 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h2 className="text-lg font-semibold">BeatMatch</h2>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {!isLoading && (
+              <Button
+                variant={plan === 'Free' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => navigate("/pricing")}
+              >
+                {plan === 'Free' ? (
+                  <>
+                    <Crown className="w-4 h-4 mr-2" />
+                    Upgrade
+                  </>
+                ) : (
+                  <>
+                    <Badge variant="secondary" className="mr-2">{plan}</Badge>
+                    {scansPerDay === -1 ? 'Unlimited' : `${scansPerDay}/day`}
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
