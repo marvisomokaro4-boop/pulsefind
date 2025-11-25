@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Music } from "lucide-react";
+import { ExternalLink, Music, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AlbumCover from "./AlbumCover";
 
@@ -110,7 +110,7 @@ const BatchResults = ({ results }: BatchResultsProps) => {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           {match.source}
                         </Badge>
@@ -122,6 +122,26 @@ const BatchResults = ({ results }: BatchResultsProps) => {
                             {match.confidence}% match
                           </Badge>
                         )}
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs ${
+                            match.preview_url 
+                              ? 'border-primary/30 text-primary' 
+                              : 'border-muted text-muted-foreground'
+                          }`}
+                        >
+                          {match.preview_url ? (
+                            <>
+                              <Play className="w-2.5 h-2.5 mr-1 fill-current" />
+                              Preview
+                            </>
+                          ) : (
+                            <>
+                              <X className="w-2.5 h-2.5 mr-1" />
+                              No Preview
+                            </>
+                          )}
+                        </Badge>
                       </div>
                     </div>
 
