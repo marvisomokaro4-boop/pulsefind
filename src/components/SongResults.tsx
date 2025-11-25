@@ -3,6 +3,7 @@ import { Music, ExternalLink, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ConfidenceFilter from "./ConfidenceFilter";
 import AlbumCover from "./AlbumCover";
+import AudioPreview from "./AudioPreview";
 import { useState } from "react";
 
 interface Match {
@@ -17,6 +18,7 @@ interface Match {
   apple_music_url?: string;
   share_url?: string;
   album_cover_url?: string;
+  preview_url?: string;
 }
 
 interface SongResultsProps {
@@ -112,7 +114,14 @@ const SongResults = ({ matches }: SongResultsProps) => {
               </div>
             </div>
             
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-3">
+              {match.preview_url && (
+                <AudioPreview 
+                  previewUrl={match.preview_url}
+                  trackName={match.title}
+                />
+              )}
+              
               {match.spotify_url && (
                 <a
                   href={match.spotify_url}

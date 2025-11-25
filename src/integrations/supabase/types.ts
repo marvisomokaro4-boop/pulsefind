@@ -25,6 +25,7 @@ export type Database = {
           confidence: number | null
           id: string
           identified_at: string | null
+          preview_url: string | null
           release_date: string | null
           share_url: string | null
           song_title: string
@@ -42,6 +43,7 @@ export type Database = {
           confidence?: number | null
           id?: string
           identified_at?: string | null
+          preview_url?: string | null
           release_date?: string | null
           share_url?: string | null
           song_title: string
@@ -59,6 +61,7 @@ export type Database = {
           confidence?: number | null
           id?: string
           identified_at?: string | null
+          preview_url?: string | null
           release_date?: string | null
           share_url?: string | null
           song_title?: string

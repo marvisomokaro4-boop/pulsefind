@@ -16,6 +16,7 @@ interface Match {
   apple_music_url?: string;
   share_url?: string;
   album_cover_url?: string;
+  preview_url?: string;
 }
 
 interface BeatResult {
