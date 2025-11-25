@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Music, ExternalLink, Shield, Play, X, Flag } from "lucide-react";
+import { Music, ExternalLink, Shield, Play, X, Flag, Lock, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,10 +9,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubscription } from "@/contexts/SubscriptionContext";
 import ConfidenceFilter from "./ConfidenceFilter";
 import AlbumCover from "./AlbumCover";
 import AudioPreview from "./AudioPreview";
+import SimilarSongs from "./SimilarSongs";
+import CopyrightAnalysis from "./CopyrightAnalysis";
 import { useState } from "react";
 
 interface Match {
@@ -39,6 +43,10 @@ interface SongResultsProps {
 const SongResults = ({ matches }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { plan } = useSubscription();
+
+  const FREE_TIER_LIMIT = 5;
 
   const handleReportMissingLink = async (match: Match, platform: string) => {
     try {
@@ -106,8 +114,19 @@ const SongResults = ({ matches }: SongResultsProps) => {
   const highConfidenceMatches = matches.filter(m => !m.confidence || m.confidence >= 70);
   const lowConfidenceMatches = matches.filter(m => m.confidence && m.confidence < 70);
   
-  // Determine which matches to display
-  const displayedMatches = showLowConfidence ? matches : highConfidenceMatches;
+  // Apply Free tier restrictions
+  const isFree = plan === 'Free';
+  const isPro = plan === 'Pro';
+  const isElite = plan === 'Elite';
+  
+  let displayedMatches = showLowConfidence ? matches : highConfidenceMatches;
+  
+  // Restrict Free users to limited results
+  if (isFree && displayedMatches.length > FREE_TIER_LIMIT) {
+    displayedMatches = displayedMatches.slice(0, FREE_TIER_LIMIT);
+  }
+  
+  const hasMoreResults = isFree && matches.length > FREE_TIER_LIMIT;
 
   return (
     <div className="space-y-6">
@@ -330,6 +349,37 @@ const SongResults = ({ matches }: SongResultsProps) => {
           </Card>
         ))}
       </div>
+
+      {/* Free Tier Upgrade Prompt */}
+      {hasMoreResults && (
+        <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <Lock className="w-12 h-12 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold mb-2">
+                {matches.length - FREE_TIER_LIMIT} More Results Available
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Upgrade to Pro to see all {matches.length} matches and unlock advanced features
+              </p>
+            </div>
+            <Button onClick={() => navigate('/pricing')} size="lg">
+              <Crown className="w-4 h-4 mr-2" />
+              Upgrade to Pro
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Pro Features: Similar Songs & Copyright Detection */}
+      {(isPro || isElite) && matches.length > 0 && (
+        <div className="grid md:grid-cols-2 gap-6 mt-8">
+          <SimilarSongs matches={matches} />
+          <CopyrightAnalysis matches={matches} beatName="Your Beat" />
+        </div>
+      )}
     </div>
   );
 };
