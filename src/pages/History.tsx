@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Music, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -148,7 +149,7 @@ const History = () => {
                             {match.artist}
                             {match.album && ` • ${match.album}`}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             {match.release_date && (
                               <span className="text-xs font-medium text-primary">
                                 Released: {new Date(match.release_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
@@ -158,6 +159,23 @@ const History = () => {
                               <span className="text-xs text-muted-foreground">
                                 • {match.confidence.toFixed(0)}% match
                               </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                            {match.spotify_url && (
+                              <Badge variant="outline" className="bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954] text-xs">
+                                Spotify
+                              </Badge>
+                            )}
+                            {match.apple_music_url && (
+                              <Badge variant="outline" className="bg-[#FA243C]/10 border-[#FA243C]/30 text-[#FA243C] text-xs">
+                                Apple Music
+                              </Badge>
+                            )}
+                            {match.youtube_url && (
+                              <Badge variant="outline" className="bg-[#FF0000]/10 border-[#FF0000]/30 text-[#FF0000] text-xs">
+                                YouTube Music
+                              </Badge>
                             )}
                           </div>
                         </div>

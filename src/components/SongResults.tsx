@@ -105,8 +105,8 @@ const SongResults = ({ matches }: SongResultsProps) => {
                   {match.source}
                 </Badge>
               </div>
-              {match.confidence && (
-                <div className="absolute top-4 left-4">
+              <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+                {match.confidence && (
                   <Badge 
                     variant="secondary" 
                     className={`backdrop-blur ${
@@ -118,8 +118,25 @@ const SongResults = ({ matches }: SongResultsProps) => {
                     <Shield className="w-3 h-3 mr-1" />
                     {Math.round(match.confidence)}%
                   </Badge>
+                )}
+                <div className="flex gap-1">
+                  {match.spotify_id && (
+                    <Badge variant="secondary" className="bg-[#1DB954]/20 backdrop-blur border-[#1DB954]/30 text-xs">
+                      Spotify
+                    </Badge>
+                  )}
+                  {match.apple_music_id && (
+                    <Badge variant="secondary" className="bg-[#FA243C]/20 backdrop-blur border-[#FA243C]/30 text-xs">
+                      Apple
+                    </Badge>
+                  )}
+                  {match.youtube_id && (
+                    <Badge variant="secondary" className="bg-[#FF0000]/20 backdrop-blur border-[#FF0000]/30 text-xs">
+                      YouTube
+                    </Badge>
+                  )}
                 </div>
-              )}
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
               <div className="absolute bottom-4 left-4 right-4">
                 <h3 className="font-bold text-lg text-foreground line-clamp-2">{match.title}</h3>

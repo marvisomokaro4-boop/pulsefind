@@ -154,6 +154,24 @@ const BatchResults = ({ results }: BatchResultsProps) => {
                         </Badge>
                       </div>
                     </div>
+                    
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {match.spotify_id && (
+                        <Badge variant="outline" className="bg-[#1DB954]/10 border-[#1DB954]/30 text-[#1DB954] text-xs">
+                          Spotify
+                        </Badge>
+                      )}
+                      {match.apple_music_id && (
+                        <Badge variant="outline" className="bg-[#FA243C]/10 border-[#FA243C]/30 text-[#FA243C] text-xs">
+                          Apple Music
+                        </Badge>
+                      )}
+                      {match.youtube_id && (
+                        <Badge variant="outline" className="bg-[#FF0000]/10 border-[#FF0000]/30 text-[#FF0000] text-xs">
+                          YouTube Music
+                        </Badge>
+                      )}
+                    </div>
 
                     <div className="flex gap-2">
                       {(match.spotify_id || match.spotify_url) && (
