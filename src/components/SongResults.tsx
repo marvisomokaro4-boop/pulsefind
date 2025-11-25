@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Music, ExternalLink, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ConfidenceFilter from "./ConfidenceFilter";
+import AlbumCover from "./AlbumCover";
 import { useState } from "react";
 
 interface Match {
@@ -15,6 +16,7 @@ interface Match {
   apple_music_id?: string;
   apple_music_url?: string;
   share_url?: string;
+  album_cover_url?: string;
 }
 
 interface SongResultsProps {
@@ -70,10 +72,12 @@ const SongResults = ({ matches }: SongResultsProps) => {
                 : 'border-primary/10 hover:border-primary/30'
             }`}
           >
-            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/20 to-background">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Music className="w-24 h-24 text-primary/30" />
-              </div>
+            <div className="relative aspect-square overflow-hidden">
+              <AlbumCover
+                albumCoverUrl={match.album_cover_url}
+                spotifyId={match.spotify_id}
+                title={match.title}
+              />
               <div className="absolute top-4 right-4">
                 <Badge variant="secondary" className="bg-background/80 backdrop-blur">
                   {match.source}

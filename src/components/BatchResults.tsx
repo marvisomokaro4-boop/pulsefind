@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ExternalLink, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AlbumCover from "./AlbumCover";
 
 interface Match {
   title: string;
@@ -14,6 +15,7 @@ interface Match {
   apple_music_id?: string;
   apple_music_url?: string;
   share_url?: string;
+  album_cover_url?: string;
 }
 
 interface BeatResult {
@@ -84,16 +86,26 @@ const BatchResults = ({ results }: BatchResultsProps) => {
                     key={matchIndex}
                     className="p-4 rounded-lg border border-border/50 bg-background/50 space-y-3"
                   >
-                    <div className="space-y-1">
-                      <h4 className="font-semibold line-clamp-1">{match.title}</h4>
-                      <p className="text-sm text-muted-foreground line-clamp-1">
-                        {match.artist}
-                      </p>
-                      {match.album && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {match.album}
+                    <div className="flex gap-3">
+                      <div className="w-16 h-16 flex-shrink-0 rounded-md overflow-hidden">
+                        <AlbumCover
+                          albumCoverUrl={match.album_cover_url}
+                          spotifyId={match.spotify_id}
+                          title={match.title}
+                          className="w-full h-full"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <h4 className="font-semibold line-clamp-1">{match.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-1">
+                          {match.artist}
                         </p>
-                      )}
+                        {match.album && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {match.album}
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between">

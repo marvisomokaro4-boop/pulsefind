@@ -18,6 +18,7 @@ interface Match {
   apple_music_id?: string;
   apple_music_url?: string;
   share_url?: string;
+  album_cover_url?: string;
 }
 
 interface BeatResult {
@@ -103,6 +104,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
               apple_music_url: match.apple_music_url,
               share_url: match.share_url,
               release_date: match.release_date,
+              album_cover_url: match.album_cover_url,
             }));
 
             const { error: matchesError } = await supabase
