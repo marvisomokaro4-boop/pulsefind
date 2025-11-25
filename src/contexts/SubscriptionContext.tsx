@@ -24,18 +24,56 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshSubscription = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      // First, get and validate the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        // No valid session, use Free tier
         setPlan('Free');
         setScansPerDay(3);
         setIsLoading(false);
         return;
       }
 
+      // Check if session is about to expire (within 5 minutes)
+      const expiresAt = session.expires_at || 0;
+      const now = Math.floor(Date.now() / 1000);
+      const fiveMinutes = 5 * 60;
+
+      if (expiresAt - now < fiveMinutes) {
+        // Session is expiring soon, refresh it
+        const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !newSession) {
+          console.error('Session refresh failed:', refreshError);
+          setPlan('Free');
+          setScansPerDay(3);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
       if (error) {
         console.error('Error checking subscription:', error);
+        
+        // If we get an auth error, try to refresh the session
+        if (error.message?.includes('Auth') || error.message?.includes('session')) {
+          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (!refreshError && refreshedSession) {
+            // Retry with refreshed session
+            const { data: retryData, error: retryError } = await supabase.functions.invoke('check-subscription');
+            if (!retryError && retryData) {
+              setPlan(retryData.plan || 'Free');
+              setScansPerDay(retryData.scans_per_day || 3);
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+        
         setPlan('Free');
         setScansPerDay(3);
       } else if (data) {
