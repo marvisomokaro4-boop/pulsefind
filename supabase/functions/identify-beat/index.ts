@@ -83,6 +83,7 @@ interface ACRCloudResponse {
           track: { id: string };
           album?: { id: string };
         };
+        applemusic?: { track: { id: string } };
         apple_music?: { track: { id: string } };
         youtube?: { vid: string };
       };
@@ -193,7 +194,8 @@ async function identifySegmentWithACRCloud(
           source: 'ACRCloud',
           spotify_id: track.external_metadata?.spotify?.track?.id,
           spotify_album_id: track.external_metadata?.spotify?.album?.id,
-          apple_music_id: track.external_metadata?.apple_music?.track?.id,
+          apple_music_id: track.external_metadata?.applemusic?.track?.id || 
+                          track.external_metadata?.apple_music?.track?.id,
           youtube_id: track.external_metadata?.youtube?.vid,
           release_date: track.release_date,
           album_cover_url: albumCoverUrl,
