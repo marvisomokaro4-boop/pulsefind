@@ -36,26 +36,33 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       // First, get and validate the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError || !session) {
-        // No valid session, use Free tier
+      if (sessionError || !session || !session.access_token) {
+        // No valid session, use Free tier without calling edge function
         setPlan('Free');
         setScansPerDay(3);
         setIsLoading(false);
         return;
       }
 
-      // Check if session is about to expire (within 5 minutes)
+      // Verify the session hasn't expired
       const expiresAt = session.expires_at || 0;
       const now = Math.floor(Date.now() / 1000);
-      const fiveMinutes = 5 * 60;
 
+      if (expiresAt <= now) {
+        // Session has expired, don't call edge function
+        setPlan('Free');
+        setScansPerDay(3);
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if session is about to expire (within 5 minutes) and refresh if needed
+      const fiveMinutes = 5 * 60;
       if (expiresAt - now < fiveMinutes) {
-        // Session is expiring soon, refresh it
         const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
         
         if (refreshError || !newSession) {
           console.error('Session refresh failed:', refreshError);
-          // Sign out to clear stale session
           setHasAuthError(true);
           await supabase.auth.signOut();
           setPlan('Free');
@@ -65,15 +72,14 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
+      // Only call edge function if we have a valid, non-expired session
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
       if (error) {
         console.error('Error checking subscription:', error);
         
-        // If we get an auth error, the session is completely invalid
+        // If we get an auth error, the session is invalid
         if (error.message?.includes('Auth') || error.message?.includes('session')) {
-          console.log('Invalid session detected, signing out...');
-          // Sign out to clear stale session and stop retrying
           setHasAuthError(true);
           await supabase.auth.signOut();
           setPlan('Free');
@@ -113,10 +119,17 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // Only set up refresh interval if we don't have an auth error
+    // Only set up refresh interval if we have a session and no auth error
     let interval: NodeJS.Timeout | null = null;
     if (!hasAuthError) {
-      interval = setInterval(refreshSubscription, 60000);
+      // Check every 5 minutes instead of every minute
+      interval = setInterval(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        // Only refresh if there's an active session
+        if (session?.access_token) {
+          refreshSubscription();
+        }
+      }, 5 * 60 * 1000); // 5 minutes
     }
 
     return () => {
