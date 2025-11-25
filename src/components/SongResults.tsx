@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Music, ExternalLink, Shield } from "lucide-react";
+import { Music, ExternalLink, Shield, Play, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ConfidenceFilter from "./ConfidenceFilter";
 import AlbumCover from "./AlbumCover";
@@ -80,7 +80,27 @@ const SongResults = ({ matches }: SongResultsProps) => {
                 spotifyId={match.spotify_id}
                 title={match.title}
               />
-              <div className="absolute top-4 right-4">
+              <div className="absolute top-4 right-4 flex gap-2">
+                <Badge 
+                  variant="secondary" 
+                  className={`backdrop-blur ${
+                    match.preview_url 
+                      ? 'bg-primary/20 border-primary/30' 
+                      : 'bg-muted/60 border-muted'
+                  }`}
+                >
+                  {match.preview_url ? (
+                    <>
+                      <Play className="w-3 h-3 mr-1 fill-current" />
+                      Preview
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-3 h-3 mr-1" />
+                      No Preview
+                    </>
+                  )}
+                </Badge>
                 <Badge variant="secondary" className="bg-background/80 backdrop-blur">
                   {match.source}
                 </Badge>
