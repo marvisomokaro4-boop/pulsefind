@@ -42,7 +42,7 @@ interface ShazamResponse {
   };
 }
 
-async function identifyWithACRCloud(audioBase64: string): Promise<any[]> {
+async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string): Promise<any[]> {
   const acrcloudHost = "identify-eu-west-1.acrcloud.com";
   const acrcloudAccessKey = Deno.env.get('ACRCLOUD_ACCESS_KEY');
   const acrcloudAccessSecret = Deno.env.get('ACRCLOUD_ACCESS_SECRET');
@@ -53,6 +53,7 @@ async function identifyWithACRCloud(audioBase64: string): Promise<any[]> {
   }
 
   try {
+    const audioData = new Uint8Array(arrayBuffer);
     const timestamp = Math.floor(Date.now() / 1000);
     const stringToSign = `POST\n/v1/identify\n${acrcloudAccessKey}\naudio\n1\n${timestamp}`;
     
@@ -77,12 +78,13 @@ async function identifyWithACRCloud(audioBase64: string): Promise<any[]> {
     const signatureBase64 = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
     const formData = new FormData();
-    formData.append('sample', audioBase64);
+    const audioBlob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+    formData.append('sample', audioBlob, fileName);
     formData.append('access_key', acrcloudAccessKey);
     formData.append('data_type', 'audio');
     formData.append('signature_version', '1');
     formData.append('signature', signatureBase64);
-    formData.append('sample_bytes', audioBase64.length.toString());
+    formData.append('sample_bytes', audioData.length.toString());
     formData.append('timestamp', timestamp.toString());
 
     const response = await fetch(`https://${acrcloudHost}/v1/identify`, {
@@ -112,7 +114,7 @@ async function identifyWithACRCloud(audioBase64: string): Promise<any[]> {
   }
 }
 
-async function identifyWithShazam(audioBase64: string): Promise<any[]> {
+async function identifyWithShazam(arrayBuffer: ArrayBuffer): Promise<any[]> {
   const shazamApiKey = Deno.env.get('SHAZAM_API_KEY');
 
   if (!shazamApiKey) {
@@ -121,8 +123,6 @@ async function identifyWithShazam(audioBase64: string): Promise<any[]> {
   }
 
   try {
-    // Convert base64 to binary for Shazam
-    const binaryData = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
 
     const response = await fetch('https://shazam.p.rapidapi.com/songs/v2/detect', {
       method: 'POST',
@@ -131,7 +131,7 @@ async function identifyWithShazam(audioBase64: string): Promise<any[]> {
         'x-rapidapi-host': 'shazam.p.rapidapi.com',
         'Content-Type': 'text/plain',
       },
-      body: binaryData,
+      body: arrayBuffer,
     });
 
     const data: ShazamResponse = await response.json();
@@ -176,15 +176,13 @@ serve(async (req) => {
 
     console.log('Processing audio file:', audioFile.name, 'size:', audioFile.size);
 
-    // Convert audio file to base64
+    // Get audio file as ArrayBuffer
     const arrayBuffer = await audioFile.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const audioBase64 = btoa(String.fromCharCode(...uint8Array));
 
     // Run both APIs in parallel
     const [acrcloudResults, shazamResults] = await Promise.all([
-      identifyWithACRCloud(audioBase64),
-      identifyWithShazam(audioBase64),
+      identifyWithACRCloud(arrayBuffer, audioFile.name),
+      identifyWithShazam(arrayBuffer),
     ]);
 
     // Combine and deduplicate results
