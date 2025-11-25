@@ -42,7 +42,12 @@ interface ShazamResponse {
   };
 }
 
-async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string): Promise<any[]> {
+async function identifySegmentWithACRCloud(
+  arrayBuffer: ArrayBuffer, 
+  fileName: string,
+  segmentStart: number,
+  segmentName: string
+): Promise<any[]> {
   const acrcloudHost = "identify-eu-west-1.acrcloud.com";
   const acrcloudAccessKey = Deno.env.get('ACRCLOUD_ACCESS_KEY');
   const acrcloudAccessSecret = Deno.env.get('ACRCLOUD_ACCESS_SECRET');
@@ -53,14 +58,11 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
   }
 
   try {
-    // Extract a sample from the audio (10-15 seconds which is what ACRCloud requires)
-    // For typical MP3s at 128-320kbps, 15 seconds is roughly 240-600KB
-    // We'll use 500KB as a safe upper limit
-    const sampleSize = Math.min(arrayBuffer.byteLength, 500 * 1024); // 500KB max (~15 seconds)
-    const audioSample = arrayBuffer.slice(0, sampleSize);
+    const sampleSize = Math.min(arrayBuffer.byteLength - segmentStart, 500 * 1024); // 500KB max
+    const audioSample = arrayBuffer.slice(segmentStart, segmentStart + sampleSize);
     const audioData = new Uint8Array(audioSample);
     
-    console.log(`Processing audio sample: ${sampleSize} bytes from ${arrayBuffer.byteLength} bytes total`);
+    console.log(`Processing ${segmentName} segment: ${sampleSize} bytes from offset ${segmentStart}`);
     
     const timestamp = Math.floor(Date.now() / 1000);
     const stringToSign = `POST\n/v1/identify\n${acrcloudAccessKey}\naudio\n1\n${timestamp}`;
@@ -101,7 +103,7 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     });
 
     const data: ACRCloudResponse = await response.json();
-    console.log('ACRCloud response:', JSON.stringify(data));
+    console.log(`ACRCloud response for ${segmentName}:`, JSON.stringify(data));
 
     if (data.status.code === 0 && data.metadata?.music) {
       return data.metadata.music.map(track => ({
@@ -112,10 +114,79 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
         source: 'ACRCloud',
         spotify_id: track.external_metadata?.spotify?.track?.id,
         apple_music_id: track.external_metadata?.apple_music?.track?.id,
+        segment: segmentName,
       }));
     }
 
     return [];
+  } catch (error) {
+    console.error(`ACRCloud error for ${segmentName}:`, error);
+    return [];
+  }
+}
+
+async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string): Promise<any[]> {
+  const acrcloudAccessKey = Deno.env.get('ACRCLOUD_ACCESS_KEY');
+  const acrcloudAccessSecret = Deno.env.get('ACRCLOUD_ACCESS_SECRET');
+
+  if (!acrcloudAccessKey || !acrcloudAccessSecret) {
+    console.log('ACRCloud credentials not configured');
+    return [];
+  }
+
+  try {
+    // Extract segments from beginning, middle, and end of the beat
+    const fileSize = arrayBuffer.byteLength;
+    const segments = [];
+    
+    // Beginning (0-500KB)
+    segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, 0, 'beginning'));
+    
+    // Middle (if file is large enough)
+    if (fileSize > 1000 * 1024) {
+      const middleStart = Math.floor(fileSize / 2) - 250 * 1024;
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, middleStart, 'middle'));
+    }
+    
+    // End (if file is large enough)
+    if (fileSize > 500 * 1024) {
+      const endStart = Math.max(0, fileSize - 500 * 1024);
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, endStart, 'end'));
+    }
+
+    // Process all segments in parallel
+    const allSegmentResults = await Promise.all(segments);
+    const allTracks = allSegmentResults.flat();
+
+    console.log(`Total tracks found across all segments: ${allTracks.length}`);
+
+    // Aggregate results: group by title+artist and pick highest confidence
+    const trackMap = new Map<string, any>();
+    
+    for (const track of allTracks) {
+      const key = `${track.title}-${track.artist}`;
+      const existing = trackMap.get(key);
+      
+      if (!existing || track.confidence > existing.confidence) {
+        trackMap.set(key, track);
+      }
+    }
+
+    // Convert to array and sort by confidence
+    let results = Array.from(trackMap.values());
+    
+    // Filter out low-confidence matches (below 60)
+    results = results.filter(track => track.confidence >= 60);
+    
+    // Sort by confidence (descending)
+    results.sort((a, b) => b.confidence - a.confidence);
+    
+    // Return top 3 matches
+    const topMatches = results.slice(0, 3);
+    
+    console.log(`Returning ${topMatches.length} high-confidence matches`);
+    
+    return topMatches;
   } catch (error) {
     console.error('ACRCloud error:', error);
     return [];
