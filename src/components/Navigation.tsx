@@ -80,7 +80,7 @@ export const Navigation = () => {
           className="flex items-center gap-2 text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent hover:opacity-80 transition-opacity"
         >
           <Music className="h-6 w-6 text-primary" />
-          <span>BeatFinder</span>
+          <span>PulseFind</span>
         </NavLink>
 
         {/* Desktop Navigation */}
@@ -151,7 +151,7 @@ export const Navigation = () => {
               <div className="flex items-center gap-2 px-4 pb-4 border-b border-border">
                 <Music className="h-5 w-5 text-primary" />
                 <span className="font-bold text-lg bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  BeatFinder
+                  PulseFind
                 </span>
               </div>
 

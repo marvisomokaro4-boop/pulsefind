@@ -26,7 +26,7 @@ export const LandingHero = () => {
           </div>
 
           <h1 className="text-6xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent">
-            BeatMatch
+            PulseFind
           </h1>
           
           <p className="text-2xl text-foreground mb-4 font-semibold">

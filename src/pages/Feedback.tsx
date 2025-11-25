@@ -120,7 +120,7 @@ const Feedback = () => {
         <CardHeader>
           <CardTitle>Submit Feedback</CardTitle>
           <CardDescription>
-            We value your input and use it to improve BeatFinder
+            We value your input and use it to improve PulseFind
           </CardDescription>
         </CardHeader>
         <CardContent>
