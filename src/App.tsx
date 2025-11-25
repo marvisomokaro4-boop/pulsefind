@@ -11,6 +11,8 @@ import History from "./pages/History";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import Pricing from "./pages/Pricing";
 import Notifications from "./pages/Notifications";
+import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
               <Route path="/history" element={<History />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/admin" element={<AdminAnalytics />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
