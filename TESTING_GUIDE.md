@@ -156,9 +156,10 @@ When you first sign up, you'll be on the **Free Tier** by default (unless you're
 When you upload `fuck_love_marv_beats.mp3`, expect:
 
 1. **Processing Time**: 30-60 seconds (comprehensive multi-segment analysis)
-2. **Confidence Scores**: 60-95% range for matches
-3. **Platform Coverage**: Results should include Spotify, Apple Music, and/or YouTube links
-4. **AI Features** (Pro/Elite):
+2. **Match Results**: Up to 99 matches returned
+3. **Confidence Scores**: 60-95% range for matches
+4. **Platform Coverage**: Results should include Spotify, Apple Music, and/or YouTube links
+5. **AI Features** (Pro/Elite):
    - Similar Songs: 5-10 recommendations based on musical similarity
    - Copyright Analysis: Risk assessment if samples detected
 
