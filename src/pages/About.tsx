@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Music, Instagram, Youtube, Mail } from "lucide-react";
 
 const About = () => {
-  // Replace these with your actual links
+  // Your social media links
   const socialLinks = {
-    instagram: "https://instagram.com/yourusername",
-    youtube: "https://youtube.com/@yourchannel",
+    instagram: "https://www.instagram.com/marvbeats33",
+    youtube: "https://www.youtube.com/@marvbeats33",
     email: "contact@beatfinder.com"
   };
 
