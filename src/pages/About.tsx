@@ -1,14 +1,49 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Music, Instagram, Youtube, Mail } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Music, Instagram, Youtube } from "lucide-react";
 
 const About = () => {
   // Your social media links
   const socialLinks = {
     instagram: "https://www.instagram.com/marvbeats33",
     youtube: "https://www.youtube.com/@marvbeats33",
-    email: "contact@beatfinder.com"
   };
+
+  const faqs = [
+    {
+      question: "How does BeatFinder identify my beats in songs?",
+      answer: "BeatFinder uses advanced audio fingerprinting technology similar to Shazam and YouTube Content ID. When you upload your beat, we analyze its unique audio signature and compare it against millions of songs across streaming platforms to find matches."
+    },
+    {
+      question: "Which streaming platforms are supported?",
+      answer: "We currently support Spotify, Apple Music, and YouTube Music. We're constantly working to add more platforms to provide comprehensive coverage of where your beats are being used."
+    },
+    {
+      question: "How accurate is the beat matching?",
+      answer: "Our matching system provides confidence scores for each result. Matches above 70% confidence are highly reliable. We analyze multiple segments of your beat to ensure comprehensive coverage and accuracy."
+    },
+    {
+      question: "Can I upload multiple beats at once?",
+      answer: "Yes! Pro and Elite tier subscribers have access to batch upload functionality, allowing you to analyze multiple beats simultaneously and compare results side-by-side."
+    },
+    {
+      question: "What's included in the free tier?",
+      answer: "Free tier users get 3 scans per day with basic match results including song title, artist, and confidence scores. You can view up to 5 matches per beat analysis."
+    },
+    {
+      question: "How do I upgrade to Pro or Elite?",
+      answer: "Visit our Pricing page to view all available plans. Pro tier offers unlimited scans and full feature access, while Elite tier adds real-time notifications when your beats are used in new songs."
+    },
+    {
+      question: "What happens to the first 50 signups?",
+      answer: "The first 50 users to sign up receive Elite tier access completely free for 3 months! This includes unlimited scans, batch uploads, notifications, and priority support."
+    },
+    {
+      question: "Can I report missing links or incorrect matches?",
+      answer: "Absolutely! Each match result has a 'Report Missing Link' button. Your reports help us improve our matching algorithm and add missing platform links."
+    }
+  ];
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -123,19 +158,28 @@ const About = () => {
                   Subscribe on YouTube
                 </Button>
               </a>
-              <a
-                href={`mailto:${socialLinks.email}`}
-                className="flex-1 min-w-[200px]"
-              >
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 hover:bg-primary/10 hover:border-primary hover:text-primary transition-colors"
-                >
-                  <Mail className="h-5 w-5" />
-                  Email Us
-                </Button>
-              </a>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Frequently Asked Questions</CardTitle>
+            <CardDescription>Everything you need to know about BeatFinder</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              {faqs.map((faq, index) => (
+                <AccordionItem key={index} value={`item-${index}`}>
+                  <AccordionTrigger className="text-left">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </CardContent>
         </Card>
 
