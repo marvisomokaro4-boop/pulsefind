@@ -39,7 +39,7 @@ const Pricing = () => {
         '7-day free trial',
       ],
       cta: 'Upgrade to Pro',
-      priceId: null, // Will be set after Stripe product creation
+      priceId: 'price_1SXUU4INPuTkGHVySZpLst8A',
       popular: true,
     },
     {
@@ -54,7 +54,7 @@ const Pricing = () => {
         'Priority support',
       ],
       cta: 'Upgrade to Elite',
-      priceId: null, // Will be set after Stripe product creation
+      priceId: 'price_1SXUUHINPuTkGHVyMFqO7sPW',
     },
   ];
 
