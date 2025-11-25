@@ -516,14 +516,9 @@ serve(async (req) => {
           try {
             const { artworkUrl, previewUrl, isAvailable } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
             
-            // Only include Spotify URL if track is available
-            const spotify_url = isAvailable ? `https://open.spotify.com/track/${track.spotify_id}` : null;
+            const spotify_url = `https://open.spotify.com/track/${track.spotify_id}`;
             const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
-            const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
-            
-            if (!isAvailable) {
-              console.log(`Warning: Track "${track.title}" by ${track.artist} is not available on Spotify in any market`);
-            }
+            const youtube_url = track.youtube_id ? `https://www.youtube.com/watch?v=${track.youtube_id}` : null;
             
             return { 
               ...track,
@@ -561,9 +556,9 @@ serve(async (req) => {
           apple_music_id = await searchAppleMusic(track.title, track.artist);
         }
         
-        const spotify_url = track.spotify_id ? `https://open.spotify.com/track/${track.spotify_id}` : null;
-        const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
-        const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
+    const spotify_url = track.spotify_id ? `https://open.spotify.com/track/${track.spotify_id}` : null;
+    const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
+    const youtube_url = track.youtube_id ? `https://www.youtube.com/watch?v=${track.youtube_id}` : null;
         
         return {
           ...track,
