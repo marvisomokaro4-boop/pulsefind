@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { Upload, Loader2, Check, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -36,6 +38,8 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
+  const [beatYear, setBeatYear] = useState<string>("");
+  const [searchAllTime, setSearchAllTime] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -45,6 +49,11 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
       // Create FormData to send the audio file
       const formData = new FormData();
       formData.append('audio', file);
+      
+      // Add year filter if specified
+      if (!searchAllTime && beatYear) {
+        formData.append('beatYear', beatYear);
+      }
 
       // Call the identify-beat edge function
       const response = await fetch(
@@ -218,6 +227,21 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
   };
 
   const handleUploadClick = () => {
+    // Validate year if not searching all time
+    if (!searchAllTime && beatYear) {
+      const year = parseInt(beatYear);
+      const currentYear = new Date().getFullYear();
+      
+      if (isNaN(year) || year < 1900 || year > currentYear) {
+        toast({
+          title: "Invalid Year",
+          description: `Please enter a valid year between 1900 and ${currentYear}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     fileInputRef.current?.click();
     setIsComplete(false);
     setIsBatchMode(false);
@@ -242,6 +266,41 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
           <p className="text-xs text-muted-foreground mt-2">
             We'll automatically analyze your beat • Max 50MB
           </p>
+        </div>
+
+        {/* Year Filter Section */}
+        <div className="space-y-4 max-w-md mx-auto">
+          <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
+            <Label htmlFor="searchAllTime" className="text-sm font-medium cursor-pointer flex-1">
+              Search all time (no year filter)
+            </Label>
+            <Switch
+              id="searchAllTime"
+              checked={searchAllTime}
+              onCheckedChange={setSearchAllTime}
+            />
+          </div>
+
+          {!searchAllTime && (
+            <div className="space-y-2">
+              <Label htmlFor="beatYear" className="text-sm font-medium">
+                Year beat was made (optional)
+              </Label>
+              <input
+                id="beatYear"
+                type="number"
+                min="1900"
+                max={new Date().getFullYear()}
+                value={beatYear}
+                onChange={(e) => setBeatYear(e.target.value)}
+                placeholder={`e.g., ${new Date().getFullYear()}`}
+                className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              />
+              <p className="text-xs text-muted-foreground">
+                We'll only show songs released after this year
+              </p>
+            </div>
+          )}
         </div>
 
         <input
