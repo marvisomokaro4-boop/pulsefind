@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { Resend } from "npm:resend@2.0.0";
+import { Resend } from "https://esm.sh/resend@4.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,10 +103,11 @@ serve(async (req) => {
           `,
         });
 
-        logStep("Email sent successfully", { email, messageId: emailResponse.id });
+        logStep("Email sent successfully", { email });
         return emailResponse;
       } catch (emailError) {
-        logStep("Error sending email", { email, error: emailError.message });
+        const errorMsg = emailError instanceof Error ? emailError.message : String(emailError);
+        logStep("Error sending email", { email, error: errorMsg });
         return null;
       }
     });
