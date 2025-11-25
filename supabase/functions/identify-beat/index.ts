@@ -84,6 +84,7 @@ interface ACRCloudResponse {
           album?: { id: string };
         };
         apple_music?: { track: { id: string } };
+        youtube?: { vid: string };
       };
       score: number;
       release_date?: string;
@@ -193,6 +194,7 @@ async function identifySegmentWithACRCloud(
           spotify_id: track.external_metadata?.spotify?.track?.id,
           spotify_album_id: track.external_metadata?.spotify?.album?.id,
           apple_music_id: track.external_metadata?.apple_music?.track?.id,
+          youtube_id: track.external_metadata?.youtube?.vid,
           release_date: track.release_date,
           album_cover_url: albumCoverUrl,
           segment: segmentName,
@@ -370,17 +372,49 @@ serve(async (req) => {
         if (track.spotify_id) {
           try {
             const { artworkUrl, previewUrl } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
+            
+            // Construct platform URLs
+            const spotify_url = `https://open.spotify.com/track/${track.spotify_id}`;
+            const apple_music_url = track.apple_music_id ? `https://music.apple.com/us/song/${track.apple_music_id}` : null;
+            const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
+            
             return { 
               ...track, 
               album_cover_url: artworkUrl || track.album_cover_url,
-              preview_url: previewUrl 
+              preview_url: previewUrl,
+              spotify_url,
+              apple_music_url,
+              youtube_url
             };
           } catch (e) {
             console.error('Error fetching Spotify details:', e);
           }
         }
-        return track;
+        
+        // Even without Spotify, construct URLs for other platforms
+        const apple_music_url = track.apple_music_id ? `https://music.apple.com/us/song/${track.apple_music_id}` : null;
+        const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
+        
+        return {
+          ...track,
+          apple_music_url,
+          youtube_url
+        };
       }));
+    } else {
+      // No Spotify token, but still construct URLs for other platforms
+      matches = matches.map((track: any) => {
+        const spotify_url = track.spotify_id ? `https://open.spotify.com/track/${track.spotify_id}` : null;
+        const apple_music_url = track.apple_music_id ? `https://music.apple.com/us/song/${track.apple_music_id}` : null;
+        const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
+        
+        return {
+          ...track,
+          spotify_url,
+          apple_music_url,
+          youtube_url
+        };
+      });
     }
 
     // Filter by beat year if provided

@@ -16,6 +16,8 @@ interface Match {
   spotify_url?: string;
   apple_music_id?: string;
   apple_music_url?: string;
+  youtube_id?: string;
+  youtube_url?: string;
   share_url?: string;
   album_cover_url?: string;
   preview_url?: string;
@@ -188,7 +190,19 @@ const SongResults = ({ matches }: SongResultsProps) => {
                 </a>
               )}
 
-              {match.share_url && !match.spotify_url && !match.apple_music_url && (
+              {match.youtube_url && (
+                <a
+                  href={match.youtube_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-gradient-to-r from-[#FF0000] to-[#CC0000] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+                >
+                  Open in YouTube Music
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+
+              {match.share_url && !match.spotify_url && !match.apple_music_url && !match.youtube_url && (
                 <a
                   href={match.share_url}
                   target="_blank"

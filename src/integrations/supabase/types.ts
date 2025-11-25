@@ -32,6 +32,8 @@ export type Database = {
           source: string
           spotify_id: string | null
           spotify_url: string | null
+          youtube_id: string | null
+          youtube_url: string | null
         }
         Insert: {
           album?: string | null
@@ -50,6 +52,8 @@ export type Database = {
           source: string
           spotify_id?: string | null
           spotify_url?: string | null
+          youtube_id?: string | null
+          youtube_url?: string | null
         }
         Update: {
           album?: string | null
@@ -68,6 +72,8 @@ export type Database = {
           source?: string
           spotify_id?: string | null
           spotify_url?: string | null
+          youtube_id?: string | null
+          youtube_url?: string | null
         }
         Relationships: [
           {
