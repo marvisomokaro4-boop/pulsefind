@@ -117,6 +117,69 @@ async function searchAppleMusic(title: string, artist: string): Promise<string |
   }
 }
 
+// Helper function to get ACRCloud metadata API token
+async function getACRCloudToken(): Promise<string | null> {
+  const acrcloudAccessKey = Deno.env.get('ACRCLOUD_ACCESS_KEY');
+  const acrcloudAccessSecret = Deno.env.get('ACRCLOUD_ACCESS_SECRET');
+  
+  if (!acrcloudAccessKey || !acrcloudAccessSecret) {
+    return null;
+  }
+
+  try {
+    const credentials = btoa(`${acrcloudAccessKey}:${acrcloudAccessSecret}`);
+    const response = await fetch('https://eu-api-v2.acrcloud.com/api/access-token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Failed to get ACRCloud token:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.access_token || null;
+  } catch (error) {
+    console.error('Error getting ACRCloud token:', error);
+    return null;
+  }
+}
+
+// Helper function to fetch Apple Music ID from ACRCloud Metadata API
+async function getAppleMusicFromACRCloud(acrid: string, token: string): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://eu-api-v2.acrcloud.com/api/external-metadata/tracks?acr_id=${acrid}&platforms=applemusic`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error('ACRCloud Metadata API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (data.data?.applemusic?.track?.id) {
+      console.log(`Found Apple Music ID via ACRCloud Metadata API: ${data.data.applemusic.track.id}`);
+      return data.data.applemusic.track.id;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching Apple Music from ACRCloud Metadata API:', error);
+    return null;
+  }
+}
+
 interface ACRCloudResponse {
   status: {
     msg: string;
@@ -127,6 +190,7 @@ interface ACRCloudResponse {
       title: string;
       artists: Array<{ name: string }>;
       album: { name: string };
+      acrid: string;
       external_metadata?: {
         spotify?: { 
           track: { id: string };
@@ -249,6 +313,7 @@ async function identifySegmentWithACRCloud(
           release_date: track.release_date,
           album_cover_url: albumCoverUrl,
           segment: segmentName,
+          acrid: track.acrid, // Store ACRCloud ID for metadata lookup
         };
       });
     }
@@ -417,14 +482,22 @@ serve(async (req) => {
 
     // Fetch Spotify track details (artwork and preview URLs) for tracks with spotify_id
     const spotifyToken = await getSpotifyToken();
+    const acrcloudToken = await getACRCloudToken();
+    
     if (spotifyToken) {
       console.log('Fetching Spotify track details...');
       matches = await Promise.all(matches.map(async (track: any) => {
         let apple_music_id = track.apple_music_id;
         
-        // Fallback: Search Apple Music if ID not provided by ACRCloud
+        // First fallback: Try ACRCloud Metadata API if we have acrid
+        if (!apple_music_id && track.acrid && acrcloudToken) {
+          console.log(`Trying ACRCloud Metadata API for "${track.title}" with acrid: ${track.acrid}`);
+          apple_music_id = await getAppleMusicFromACRCloud(track.acrid, acrcloudToken);
+        }
+        
+        // Second fallback: Search iTunes if still no Apple Music ID
         if (!apple_music_id && track.title && track.artist) {
-          console.log(`Apple Music ID not found for "${track.title}", searching iTunes...`);
+          console.log(`Apple Music ID not found, searching iTunes for "${track.title}"...`);
           apple_music_id = await searchAppleMusic(track.title, track.artist);
         }
         
