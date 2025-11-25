@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import ConfidenceFilter from "./ConfidenceFilter";
 import AlbumCover from "./AlbumCover";
 import AudioPreview from "./AudioPreview";
@@ -39,18 +40,54 @@ const SongResults = ({ matches }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const { toast } = useToast();
 
-  const handleReportMissingLink = (match: Match, platform: string) => {
-    toast({
-      title: "Missing Link Reported",
-      description: `Thanks for reporting that "${match.title}" by ${match.artist} is available on ${platform}. We'll work on improving our matching.`,
-    });
-    
-    // Could save to database for future improvements
-    console.log(`Missing link report: ${match.title} by ${match.artist} on ${platform}`, {
-      spotify_id: match.spotify_id,
-      apple_music_id: match.apple_music_id,
-      youtube_id: match.youtube_id,
-    });
+  const handleReportMissingLink = async (match: Match, platform: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to report missing links.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from("missing_link_reports")
+        .insert({
+          user_id: user.id,
+          song_title: match.title,
+          artist: match.artist,
+          album: match.album,
+          reported_platform: platform,
+          spotify_id: match.spotify_id,
+          apple_music_id: match.apple_music_id,
+          youtube_id: match.youtube_id,
+        });
+
+      if (error) {
+        console.error("Error saving report:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save report. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Missing Link Reported",
+        description: `Thanks for reporting that "${match.title}" by ${match.artist} is available on ${platform}. We'll work on improving our matching.`,
+      });
+    } catch (error) {
+      console.error("Error reporting missing link:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (matches.length === 0) {
