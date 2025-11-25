@@ -20,6 +20,7 @@ interface ACRCloudResponse {
         apple_music?: { track: { id: string } };
       };
       score: number;
+      release_date?: string;
     }>;
   };
 }
@@ -114,6 +115,7 @@ async function identifySegmentWithACRCloud(
         source: 'ACRCloud',
         spotify_id: track.external_metadata?.spotify?.track?.id,
         apple_music_id: track.external_metadata?.apple_music?.track?.id,
+        release_date: track.release_date,
         segment: segmentName,
       }));
     }
@@ -245,6 +247,7 @@ serve(async (req) => {
   try {
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
+    const beatYear = formData.get('beatYear') as string | null;
 
     if (!audioFile) {
       return new Response(
@@ -254,6 +257,9 @@ serve(async (req) => {
     }
 
     console.log('Processing audio file:', audioFile.name, 'size:', audioFile.size);
+    if (beatYear) {
+      console.log('Filtering songs released after year:', beatYear);
+    }
 
     // Get audio file as ArrayBuffer
     const arrayBuffer = await audioFile.arrayBuffer();
@@ -274,7 +280,19 @@ serve(async (req) => {
       return acc;
     }, new Map());
 
-    const matches = Array.from(uniqueResults.values());
+    let matches = Array.from(uniqueResults.values());
+
+    // Filter by beat year if provided
+    if (beatYear) {
+      const filterYear = parseInt(beatYear);
+      matches = matches.filter((match: any) => {
+        if (!match.release_date) return true; // Keep if no release date available
+        
+        const releaseYear = new Date(match.release_date).getFullYear();
+        return releaseYear >= filterYear;
+      });
+      console.log(`After year filter (${filterYear}):`, matches.length, 'matches');
+    }
 
     console.log('Found matches:', matches.length);
 
