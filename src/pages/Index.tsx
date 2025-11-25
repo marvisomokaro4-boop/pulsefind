@@ -3,13 +3,26 @@ import { Music2 } from "lucide-react";
 import BeatInput from "@/components/BeatInput";
 import SongResults from "@/components/SongResults";
 
-const Index = () => {
-  const [bpm, setBpm] = useState<number | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+interface Match {
+  title: string;
+  artist: string;
+  album?: string;
+  confidence?: number;
+  source: string;
+  spotify_id?: string;
+  spotify_url?: string;
+  apple_music_id?: string;
+  apple_music_url?: string;
+  share_url?: string;
+}
 
-  const handleBpmDetected = (detectedBpm: number) => {
-    setBpm(detectedBpm);
-    setIsSearching(true);
+const Index = () => {
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const handleMatchesFound = (foundMatches: Match[]) => {
+    setMatches(foundMatches);
+    setHasSearched(true);
   };
 
   return (
@@ -28,10 +41,10 @@ const Index = () => {
               BeatMatch
             </h1>
             <p className="text-2xl text-muted-foreground mb-4">
-              Find Songs That Match Your Beat
+              Discover Who's Using Your Beats
             </p>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Upload your beat and discover tracks with matching tempo on Spotify.
+              Upload your producer beat and find all the songs using it across Spotify, Apple Music, and more.
             </p>
           </div>
         </div>
@@ -54,13 +67,13 @@ const Index = () => {
 
       {/* Beat Input Section */}
       <section className="container mx-auto px-4 py-16">
-        <BeatInput onBpmDetected={handleBpmDetected} />
+        <BeatInput onMatchesFound={handleMatchesFound} />
       </section>
 
       {/* Results Section */}
-      {isSearching && bpm && (
+      {hasSearched && (
         <section className="container mx-auto px-4 pb-16">
-          <SongResults bpm={bpm} />
+          <SongResults matches={matches} />
         </section>
       )}
     </main>

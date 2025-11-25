@@ -1,18 +1,30 @@
 import { useState, useRef } from "react";
+import { Upload, Loader2, Check, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, Music, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { analyzeBPM } from "@/lib/bpmDetector";
 
-interface BeatInputProps {
-  onBpmDetected: (bpm: number) => void;
+interface Match {
+  title: string;
+  artist: string;
+  album?: string;
+  confidence?: number;
+  source: string;
+  spotify_id?: string;
+  spotify_url?: string;
+  apple_music_id?: string;
+  apple_music_url?: string;
+  share_url?: string;
 }
 
-const BeatInput = ({ onBpmDetected }: BeatInputProps) => {
-  const [bpm, setBpm] = useState<number | null>(null);
+interface BeatInputProps {
+  onMatchesFound: (matches: Match[]) => void;
+}
+
+const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>("");
+  const [isComplete, setIsComplete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -20,10 +32,12 @@ const BeatInput = ({ onBpmDetected }: BeatInputProps) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('audio/')) {
+    // Validate file type
+    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/m4a'];
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a)$/i)) {
       toast({
-        title: "Invalid File",
-        description: "Please upload an audio file (MP3, WAV, etc.)",
+        title: "Invalid File Type",
+        description: "Please upload an audio file (MP3, WAV, OGG, M4A).",
         variant: "destructive",
       });
       return;
@@ -31,21 +45,47 @@ const BeatInput = ({ onBpmDetected }: BeatInputProps) => {
 
     setFileName(file.name);
     setIsAnalyzing(true);
+    setIsComplete(false);
 
     try {
-      const detectedBpm = await analyzeBPM(file);
-      setBpm(detectedBpm);
-      onBpmDetected(detectedBpm);
-      
-      toast({
-        title: "Beat Analyzed!",
-        description: `Detected ${detectedBpm} BPM`,
-      });
+      // Create FormData to send the audio file
+      const formData = new FormData();
+      formData.append('audio', file);
+
+      // Call the identify-beat edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/identify-beat`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to identify beat');
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.matches && data.matches.length > 0) {
+        onMatchesFound(data.matches);
+        setIsComplete(true);
+        
+        toast({
+          title: "Matches Found!",
+          description: `Found ${data.matches.length} song(s) using your beat`,
+        });
+      } else {
+        toast({
+          title: "No Matches Found",
+          description: "We couldn't find any songs using this beat. The beat might not be in any released tracks yet.",
+        });
+      }
     } catch (error) {
-      console.error('BPM detection error:', error);
+      console.error('Error identifying beat:', error);
       toast({
-        title: "Analysis Failed",
-        description: "Could not analyze the audio file. Try another file.",
+        title: "Identification Failed",
+        description: "Unable to identify songs using this beat. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -55,73 +95,79 @@ const BeatInput = ({ onBpmDetected }: BeatInputProps) => {
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
+    setIsComplete(false);
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <Card className="p-8 bg-card border-primary/20 shadow-lg">
-        <div className="text-center space-y-6">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Music className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground">Upload Your Beat</h2>
+    <Card className="max-w-2xl mx-auto p-8 bg-card/50 backdrop-blur border-primary/20">
+      <div className="text-center space-y-6">
+        <div className="flex justify-center">
+          <div className="p-4 rounded-full bg-primary/10">
+            <Music className="w-12 h-12 text-primary" />
           </div>
-          
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Upload Your Beat</h2>
           <p className="text-muted-foreground">
-            Upload an audio file to detect its BPM and find matching songs
+            Upload your producer beat to find which songs are using it
           </p>
+        </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
 
-          <div className="relative">
+        {!isAnalyzing && !isComplete && (
+          <Button
+            onClick={handleUploadClick}
+            size="lg"
+            className="w-full max-w-sm group"
+          >
+            <Upload className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+            Choose Audio File
+          </Button>
+        )}
+
+        {isAnalyzing && (
+          <div className="py-8 space-y-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+            <div className="space-y-2">
+              <p className="font-medium">Identifying your beat...</p>
+              {fileName && (
+                <p className="text-sm text-muted-foreground">{fileName}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Searching across multiple platforms...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isComplete && !isAnalyzing && (
+          <div className="py-8 space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              <Check className="w-8 h-8 text-primary" />
+              <p className="text-xl font-bold">Search Complete</p>
+            </div>
+            {fileName && (
+              <p className="text-sm text-muted-foreground">{fileName}</p>
+            )}
             <Button
               onClick={handleUploadClick}
-              disabled={isAnalyzing}
-              size="lg"
-              className="w-48 h-48 rounded-full text-xl font-bold bg-gradient-primary hover:opacity-90 transition-all duration-200"
+              variant="outline"
+              className="mt-4"
             >
-              {isAnalyzing ? (
-                <Loader2 className="w-12 h-12 animate-spin" />
-              ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <Upload className="w-12 h-12" />
-                  <span>Upload</span>
-                </div>
-              )}
+              Search Another Beat
             </Button>
           </div>
-
-          {fileName && (
-            <p className="text-sm text-muted-foreground">
-              {fileName}
-            </p>
-          )}
-
-          {bpm && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-              <div className="p-6 bg-muted/50 rounded-lg border border-primary/20">
-                <p className="text-sm text-muted-foreground mb-2">Detected BPM</p>
-                <p className="text-5xl font-bold text-primary">{bpm}</p>
-              </div>
-              
-              <Button
-                onClick={handleUploadClick}
-                variant="outline"
-                className="gap-2"
-              >
-                <Upload className="w-4 h-4" />
-                Upload Another Beat
-              </Button>
-            </div>
-          )}
-        </div>
-      </Card>
-    </div>
+        )}
+      </div>
+    </Card>
   );
 };
 
