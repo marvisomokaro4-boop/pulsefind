@@ -21,7 +21,7 @@ const About = () => {
     },
     {
       question: "How accurate is the beat matching?",
-      answer: "Our matching system provides confidence scores for each result. Matches above 70% confidence are highly reliable. We analyze multiple segments of your beat to ensure comprehensive coverage and accuracy."
+      answer: "Our matching system provides confidence scores for each result. Matches above 70% confidence are highly reliable. We analyze multiple segments of your beat to ensure comprehensive coverage and accuracy, returning up to 99 matches per scan."
     },
     {
       question: "Can I upload multiple beats at once?",
