@@ -113,12 +113,15 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // Refresh every 60 seconds
-    const interval = setInterval(refreshSubscription, 60000);
+    // Only set up refresh interval if we don't have an auth error
+    let interval: NodeJS.Timeout | null = null;
+    if (!hasAuthError) {
+      interval = setInterval(refreshSubscription, 60000);
+    }
 
     return () => {
       subscription.unsubscribe();
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, [hasAuthError]);
 
