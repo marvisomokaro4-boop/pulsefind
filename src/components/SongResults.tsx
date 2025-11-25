@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Music, ExternalLink, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import ConfidenceFilter from "./ConfidenceFilter";
+import { useState } from "react";
 
 interface Match {
   title: string;
@@ -20,6 +22,8 @@ interface SongResultsProps {
 }
 
 const SongResults = ({ matches }: SongResultsProps) => {
+  const [showLowConfidence, setShowLowConfidence] = useState(false);
+
   if (matches.length === 0) {
     return (
       <div className="text-center py-16">
@@ -32,18 +36,39 @@ const SongResults = ({ matches }: SongResultsProps) => {
     );
   }
 
+  // Separate high and low confidence matches
+  const highConfidenceMatches = matches.filter(m => !m.confidence || m.confidence >= 70);
+  const lowConfidenceMatches = matches.filter(m => m.confidence && m.confidence < 70);
+  
+  // Determine which matches to display
+  const displayedMatches = showLowConfidence ? matches : highConfidenceMatches;
+
   return (
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-3xl font-bold mb-2">Songs Using Your Beat</h2>
-        <p className="text-muted-foreground">Found {matches.length} track{matches.length > 1 ? 's' : ''} containing your beat</p>
+        <p className="text-muted-foreground">
+          Found {highConfidenceMatches.length} high-confidence match{highConfidenceMatches.length !== 1 ? 'es' : ''}
+        </p>
       </div>
 
+      {lowConfidenceMatches.length > 0 && (
+        <ConfidenceFilter
+          showLowConfidence={showLowConfidence}
+          onToggle={setShowLowConfidence}
+          lowConfidenceCount={lowConfidenceMatches.length}
+        />
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {matches.map((match, index) => (
+        {displayedMatches.map((match, index) => (
           <Card
             key={`${match.title}-${match.artist}-${index}`}
-            className="overflow-hidden bg-card border-primary/10 hover:border-primary/30 transition-all group"
+            className={`overflow-hidden bg-card transition-all group ${
+              match.confidence && match.confidence < 70 
+                ? 'border-muted/50 opacity-90' 
+                : 'border-primary/10 hover:border-primary/30'
+            }`}
           >
             <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-primary/20 to-background">
               <div className="absolute inset-0 flex items-center justify-center">
@@ -56,7 +81,14 @@ const SongResults = ({ matches }: SongResultsProps) => {
               </div>
               {match.confidence && (
                 <div className="absolute top-4 left-4">
-                  <Badge variant="secondary" className="bg-primary/20 backdrop-blur">
+                  <Badge 
+                    variant="secondary" 
+                    className={`backdrop-blur ${
+                      match.confidence >= 70 
+                        ? 'bg-primary/20' 
+                        : 'bg-muted/60'
+                    }`}
+                  >
                     <Shield className="w-3 h-3 mr-1" />
                     {Math.round(match.confidence)}%
                   </Badge>

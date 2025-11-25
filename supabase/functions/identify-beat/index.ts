@@ -177,16 +177,16 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Convert to array and sort by confidence
     let results = Array.from(trackMap.values());
     
-    // Filter out low-confidence matches (below 60)
-    results = results.filter(track => track.confidence >= 60);
+    // Filter out very low-confidence matches (below 40)
+    results = results.filter(track => track.confidence >= 40);
     
     // Sort by confidence (descending)
     results.sort((a, b) => b.confidence - a.confidence);
     
-    // Return top 3 matches
-    const topMatches = results.slice(0, 3);
+    // Return top 5 matches (increased from 3 to show more options)
+    const topMatches = results.slice(0, 5);
     
-    console.log(`Returning ${topMatches.length} high-confidence matches`);
+    console.log(`Returning ${topMatches.length} matches (filtered below 40% confidence)`);
     
     return topMatches;
   } catch (error) {
