@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Search, Zap, Bell, BarChart3, Shield, Layers } from "lucide-react";
 
 export const LandingFeatures = () => {
@@ -6,32 +7,38 @@ export const LandingFeatures = () => {
     {
       icon: Search,
       title: "Audio Fingerprinting",
-      description: "Advanced technology like Shazam identifies your beats in millions of songs across streaming platforms."
+      description: "Advanced technology like Shazam identifies your beats in millions of songs across streaming platforms.",
+      tier: "Free"
     },
     {
       icon: Layers,
       title: "Multi-Platform Search",
-      description: "Find your beats on Spotify, Apple Music, YouTube Music, and more - all in one search."
-    },
-    {
-      icon: Zap,
-      title: "Batch Analysis",
-      description: "Upload multiple beats at once and compare results side-by-side for efficient workflow."
-    },
-    {
-      icon: Bell,
-      title: "Real-Time Notifications",
-      description: "Get notified instantly when your beats are used in new songs (Elite tier)."
+      description: "Find your beats on Spotify, Apple Music, YouTube Music, and more - all in one search.",
+      tier: "Free"
     },
     {
       icon: BarChart3,
       title: "Confidence Scores",
-      description: "See match confidence levels and detailed analytics for every identified song."
+      description: "See detailed match confidence levels and analytics for every identified song.",
+      tier: "Pro"
     },
     {
       icon: Shield,
       title: "Copyright Detection",
-      description: "Analyze potential sample and copyright concerns in identified matches (Pro tier)."
+      description: "Analyze potential sample and copyright concerns with AI-powered detection.",
+      tier: "Pro"
+    },
+    {
+      icon: Zap,
+      title: "Batch Analysis",
+      description: "Upload multiple beats at once and compare results side-by-side for efficient workflow.",
+      tier: "Elite"
+    },
+    {
+      icon: Bell,
+      title: "Real-Time Notifications",
+      description: "Get notified instantly when your beats are used in new songs across all platforms.",
+      tier: "Elite"
     }
   ];
 
@@ -48,8 +55,16 @@ export const LandingFeatures = () => {
         {features.map((feature, index) => (
           <Card key={index} className="border-border hover:border-primary/50 transition-all hover:shadow-[0_0_20px_hsl(180_100%_50%/0.2)]">
             <CardHeader>
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                <feature.icon className="w-6 h-6 text-primary" />
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <feature.icon className="w-6 h-6 text-primary" />
+                </div>
+                <Badge 
+                  variant={feature.tier === "Free" ? "secondary" : feature.tier === "Pro" ? "default" : "outline"}
+                  className={feature.tier === "Elite" ? "border-primary text-primary" : ""}
+                >
+                  {feature.tier}
+                </Badge>
               </div>
               <CardTitle className="text-xl">{feature.title}</CardTitle>
               <CardDescription className="text-base">
