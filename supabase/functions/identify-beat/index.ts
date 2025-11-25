@@ -8,19 +8,39 @@ const corsHeaders = {
 // Helper function to get Spotify access token
 async function getSpotifyToken(): Promise<string | null> {
   try {
-    const clientId = '6c22aaa3cdda4d9aa4fa9f8db7e219e2'; // Public Spotify client ID
-    const clientSecret = 'your_client_secret_here'; // Would need to be stored as secret
+    // Using Spotify's Client Credentials flow with a public client ID
+    const clientId = '6c22aaa3cdda4d9aa4fa9f8db7e219e2';
+    const clientSecret = Deno.env.get('SPOTIFY_CLIENT_SECRET');
     
-    // For now, we'll skip Spotify API calls and construct URLs directly
-    return null;
+    if (!clientSecret) {
+      console.log('Spotify client secret not configured, skipping preview URLs');
+      return null;
+    }
+    
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + btoa(`${clientId}:${clientSecret}`)
+      },
+      body: 'grant_type=client_credentials'
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to get Spotify token:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.access_token;
   } catch (error) {
     console.error('Error getting Spotify token:', error);
     return null;
   }
 }
 
-// Helper function to get album artwork from Spotify
-async function getSpotifyAlbumArt(trackId: string, token: string): Promise<string | null> {
+// Helper function to get album artwork and preview URL from Spotify
+async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{ artworkUrl: string | null, previewUrl: string | null }> {
   try {
     const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
       headers: {
@@ -28,20 +48,23 @@ async function getSpotifyAlbumArt(trackId: string, token: string): Promise<strin
       }
     });
     
-    if (!response.ok) return null;
+    if (!response.ok) return { artworkUrl: null, previewUrl: null };
     
     const data = await response.json();
     const images = data.album?.images;
     
-    // Return the medium-sized image (typically 300x300)
-    if (images && images.length > 0) {
-      return images[1]?.url || images[0]?.url;
-    }
+    // Get medium-sized image (typically 300x300)
+    const artworkUrl = images && images.length > 0 
+      ? (images[1]?.url || images[0]?.url)
+      : null;
     
-    return null;
+    // Get preview URL (30-second MP3)
+    const previewUrl = data.preview_url || null;
+    
+    return { artworkUrl, previewUrl };
   } catch (error) {
-    console.error('Error fetching Spotify album art:', error);
-    return null;
+    console.error('Error fetching Spotify track details:', error);
+    return { artworkUrl: null, previewUrl: null };
   }
 }
 
@@ -338,6 +361,27 @@ serve(async (req) => {
     }, new Map());
 
     let matches = Array.from(uniqueResults.values());
+
+    // Fetch Spotify track details (artwork and preview URLs) for tracks with spotify_id
+    const spotifyToken = await getSpotifyToken();
+    if (spotifyToken) {
+      console.log('Fetching Spotify track details...');
+      matches = await Promise.all(matches.map(async (track: any) => {
+        if (track.spotify_id && !track.album_cover_url) {
+          try {
+            const { artworkUrl, previewUrl } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
+            return { 
+              ...track, 
+              album_cover_url: artworkUrl || track.album_cover_url,
+              preview_url: previewUrl 
+            };
+          } catch (e) {
+            console.error('Error fetching Spotify details:', e);
+          }
+        }
+        return track;
+      }));
+    }
 
     // Filter by beat year if provided
     if (beatYear) {
