@@ -17,6 +17,7 @@ export type Database = {
       beat_matches: {
         Row: {
           album: string | null
+          album_cover_url: string | null
           apple_music_id: string | null
           apple_music_url: string | null
           artist: string
@@ -33,6 +34,7 @@ export type Database = {
         }
         Insert: {
           album?: string | null
+          album_cover_url?: string | null
           apple_music_id?: string | null
           apple_music_url?: string | null
           artist: string
@@ -49,6 +51,7 @@ export type Database = {
         }
         Update: {
           album?: string | null
+          album_cover_url?: string | null
           apple_music_id?: string | null
           apple_music_url?: string | null
           artist?: string
