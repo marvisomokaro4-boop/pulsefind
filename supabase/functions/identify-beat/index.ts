@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -479,6 +480,38 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Rate limiting - 10 requests per 15 minutes per IP
+  const clientId = getClientIdentifier(req);
+  const rateLimitResult = await checkRateLimit(clientId, 'identify-beat', {
+    maxRequests: 10,
+    windowMinutes: 15,
+  });
+
+  if (!rateLimitResult.allowed) {
+    console.log(`Rate limit exceeded for ${clientId}`);
+    return new Response(
+      JSON.stringify({
+        error: 'Rate limit exceeded. Please try again later.',
+        resetAt: rateLimitResult.resetAt.toISOString(),
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': '10',
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': rateLimitResult.resetAt.toISOString(),
+          'Retry-After': Math.ceil(
+            (rateLimitResult.resetAt.getTime() - Date.now()) / 1000
+          ).toString(),
+        },
+      }
+    );
+  }
+
+  console.log(`Rate limit check passed for ${clientId}, remaining: ${rateLimitResult.remaining}`);
+
   try {
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
@@ -621,7 +654,13 @@ serve(async (req) => {
       }),
       { 
         status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-RateLimit-Limit': '10',
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': rateLimitResult.resetAt.toISOString(),
+        }
       }
     );
 
