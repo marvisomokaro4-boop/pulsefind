@@ -18,46 +18,28 @@ interface Match {
   share_url?: string;
 }
 
-interface BeatInputProps {
-  onMatchesFound: (matches: Match[]) => void;
+interface BeatResult {
+  fileName: string;
+  matches: Match[];
+  success: boolean;
 }
 
-const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
+interface BeatInputProps {
+  onMatchesFound: (matches: Match[]) => void;
+  onBatchResults?: (results: BeatResult[]) => void;
+}
+
+const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [isComplete, setIsComplete] = useState(false);
+  const [isBatchMode, setIsBatchMode] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [totalFiles, setTotalFiles] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/m4a'];
-    if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a)$/i)) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please upload an audio file (MP3, WAV, OGG, M4A).",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file size (50MB limit for full beats)
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    if (file.size > maxSize) {
-      toast({
-        title: "File Too Large",
-        description: "Maximum file size is 50MB. Please compress your audio file.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setFileName(file.name);
-    setIsAnalyzing(true);
-    setIsComplete(false);
+  const processFile = async (file: File): Promise<BeatResult> => {
 
     try {
       // Create FormData to send the audio file
@@ -124,25 +106,110 @@ const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
         }
       }
 
-      if (data.success && data.matches && data.matches.length > 0) {
-        onMatchesFound(data.matches);
-        setIsComplete(true);
-        
-        toast({
-          title: "Matches Found!",
-          description: `Found ${data.matches.length} song(s) using your beat`,
-        });
-      } else {
-        toast({
-          title: "No Matches Found",
-          description: "We couldn't find any songs using this beat. The beat might not be in any released tracks yet.",
-        });
-      }
+      return {
+        fileName: file.name,
+        matches: data.success ? data.matches : [],
+        success: data.success,
+      };
     } catch (error) {
       console.error('Error identifying beat:', error);
+      return {
+        fileName: file.name,
+        matches: [],
+        success: false,
+      };
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const filesArray = Array.from(files);
+
+    // Validate file types
+    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/m4a'];
+    const invalidFiles = filesArray.filter(
+      file => !validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a)$/i)
+    );
+
+    if (invalidFiles.length > 0) {
       toast({
-        title: "Identification Failed",
-        description: "Unable to identify songs using this beat. Please try again.",
+        title: "Invalid File Type",
+        description: `${invalidFiles.length} file(s) skipped. Please upload audio files only (MP3, WAV, OGG, M4A).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file sizes
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    const oversizedFiles = filesArray.filter(file => file.size > maxSize);
+
+    if (oversizedFiles.length > 0) {
+      toast({
+        title: "File Too Large",
+        description: `${oversizedFiles.length} file(s) exceed 50MB limit. Please compress your audio files.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const isBatch = filesArray.length > 1;
+    setIsBatchMode(isBatch);
+    setTotalFiles(filesArray.length);
+    setProcessedCount(0);
+    setFileName(isBatch ? `${filesArray.length} files` : filesArray[0].name);
+    setIsAnalyzing(true);
+    setIsComplete(false);
+
+    try {
+      // Process all files in parallel
+      const results: BeatResult[] = [];
+      
+      for (let i = 0; i < filesArray.length; i++) {
+        const result = await processFile(filesArray[i]);
+        results.push(result);
+        setProcessedCount(i + 1);
+      }
+
+      const successfulResults = results.filter(r => r.success && r.matches.length > 0);
+      
+      if (isBatch && onBatchResults) {
+        onBatchResults(results);
+        
+        if (successfulResults.length > 0) {
+          toast({
+            title: "Batch Analysis Complete!",
+            description: `Found matches in ${successfulResults.length} of ${filesArray.length} beats`,
+          });
+        } else {
+          toast({
+            title: "No Matches Found",
+            description: "We couldn't find any songs using these beats.",
+          });
+        }
+      } else if (results.length === 1) {
+        if (results[0].success && results[0].matches.length > 0) {
+          onMatchesFound(results[0].matches);
+          toast({
+            title: "Matches Found!",
+            description: `Found ${results[0].matches.length} song(s) using your beat`,
+          });
+        } else {
+          toast({
+            title: "No Matches Found",
+            description: "We couldn't find any songs using this beat.",
+          });
+        }
+      }
+
+      setIsComplete(true);
+    } catch (error) {
+      console.error('Error in batch processing:', error);
+      toast({
+        title: "Processing Failed",
+        description: "Unable to process files. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -153,6 +220,9 @@ const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
   const handleUploadClick = () => {
     fileInputRef.current?.click();
     setIsComplete(false);
+    setIsBatchMode(false);
+    setProcessedCount(0);
+    setTotalFiles(0);
   };
 
   return (
@@ -178,28 +248,41 @@ const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
           ref={fileInputRef}
           type="file"
           accept="audio/*"
+          multiple
           onChange={handleFileSelect}
           className="hidden"
         />
 
         {!isAnalyzing && !isComplete && (
-          <Button
-            onClick={handleUploadClick}
-            size="lg"
-            className="w-full max-w-sm group"
-          >
-            <Upload className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-            Choose Audio File
-          </Button>
+          <div className="space-y-2">
+            <Button
+              onClick={handleUploadClick}
+              size="lg"
+              className="w-full max-w-sm group"
+            >
+              <Upload className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+              Choose Audio File(s)
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Select multiple files for batch analysis
+            </p>
+          </div>
         )}
 
         {isAnalyzing && (
           <div className="py-8 space-y-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
             <div className="space-y-2">
-              <p className="font-medium">Identifying your beat...</p>
+              <p className="font-medium">
+                {isBatchMode ? 'Analyzing beats...' : 'Identifying your beat...'}
+              </p>
               {fileName && (
                 <p className="text-sm text-muted-foreground">{fileName}</p>
+              )}
+              {isBatchMode && (
+                <p className="text-sm font-medium text-primary">
+                  Processing: {processedCount} / {totalFiles}
+                </p>
               )}
               <p className="text-xs text-muted-foreground">
                 Searching across multiple platforms...
