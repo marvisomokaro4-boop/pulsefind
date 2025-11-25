@@ -214,7 +214,7 @@ const SongResults = ({ matches }: SongResultsProps) => {
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-gradient-to-r from-[#FF0000] to-[#CC0000] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
                 >
-                  Open in YouTube Music
+                  Open in YouTube
                   <ExternalLink className="w-4 h-4" />
                 </a>
               )}
