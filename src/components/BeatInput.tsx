@@ -102,6 +102,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
               apple_music_id: match.apple_music_id,
               apple_music_url: match.apple_music_url,
               share_url: match.share_url,
+              release_date: match.release_date,
             }));
 
             const { error: matchesError } = await supabase

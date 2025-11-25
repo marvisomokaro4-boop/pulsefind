@@ -18,6 +18,7 @@ interface BeatWithMatches {
     source: string;
     spotify_url?: string;
     apple_music_url?: string;
+    release_date?: string;
   }>;
 }
 
@@ -146,10 +147,18 @@ const History = () => {
                             {match.artist}
                             {match.album && ` • ${match.album}`}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {match.confidence &&
-                              `${match.confidence.toFixed(0)}% match`}
-                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {match.release_date && (
+                              <span className="text-xs font-medium text-primary">
+                                Released: {new Date(match.release_date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </span>
+                            )}
+                            {match.confidence && (
+                              <span className="text-xs text-muted-foreground">
+                                • {match.confidence.toFixed(0)}% match
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           {match.spotify_url && (
