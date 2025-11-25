@@ -43,12 +43,12 @@ const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
       return;
     }
 
-    // Validate file size (5MB limit - ACRCloud recommends 10-20 seconds of audio)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file size (50MB limit for full beats)
+    const maxSize = 50 * 1024 * 1024; // 50MB
     if (file.size > maxSize) {
       toast({
         title: "File Too Large",
-        description: "Please upload a shorter audio clip (10-20 seconds recommended). Maximum file size is 5MB.",
+        description: "Maximum file size is 50MB. Please compress your audio file.",
         variant: "destructive",
       });
       return;
@@ -121,10 +121,10 @@ const BeatInput = ({ onMatchesFound }: BeatInputProps) => {
         <div>
           <h2 className="text-2xl font-bold mb-2">Upload Your Beat</h2>
           <p className="text-muted-foreground">
-            Upload your producer beat to find which songs are using it
+            Upload your full producer beat to find which songs are using it
           </p>
           <p className="text-xs text-muted-foreground mt-2">
-            Recommended: 10-20 seconds of audio • Max 5MB
+            We'll automatically analyze your beat • Max 50MB
           </p>
         </div>
 
