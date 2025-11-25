@@ -117,6 +117,56 @@ export type Database = {
           },
         ]
       }
+      missing_link_reports: {
+        Row: {
+          album: string | null
+          apple_music_id: string | null
+          artist: string
+          beat_match_id: string | null
+          id: string
+          reported_at: string
+          reported_platform: string
+          song_title: string
+          spotify_id: string | null
+          user_id: string
+          youtube_id: string | null
+        }
+        Insert: {
+          album?: string | null
+          apple_music_id?: string | null
+          artist: string
+          beat_match_id?: string | null
+          id?: string
+          reported_at?: string
+          reported_platform: string
+          song_title: string
+          spotify_id?: string | null
+          user_id: string
+          youtube_id?: string | null
+        }
+        Update: {
+          album?: string | null
+          apple_music_id?: string | null
+          artist?: string
+          beat_match_id?: string | null
+          id?: string
+          reported_at?: string
+          reported_platform?: string
+          song_title?: string
+          spotify_id?: string | null
+          user_id?: string
+          youtube_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missing_link_reports_beat_match_id_fkey"
+            columns: ["beat_match_id"]
+            isOneToOne: false
+            referencedRelation: "beat_matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
