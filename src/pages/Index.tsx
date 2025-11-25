@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music2, LogOut, History as HistoryIcon } from "lucide-react";
+import { Music2, LogOut, History as HistoryIcon, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import BeatInput from "@/components/BeatInput";
@@ -36,6 +36,7 @@ const Index = () => {
   const [batchResults, setBatchResults] = useState<BeatResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -46,6 +47,7 @@ const Index = () => {
         navigate("/auth");
       } else {
         setUser(session.user);
+        checkAdminStatus(session.user.id);
       }
     });
 
@@ -56,11 +58,23 @@ const Index = () => {
         navigate("/auth");
       } else {
         setUser(session.user);
+        checkAdminStatus(session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const checkAdminStatus = async (userId: string) => {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    
+    setIsAdmin(!!data);
+  };
 
   const handleMatchesFound = (foundMatches: Match[]) => {
     setMatches(foundMatches);
@@ -101,6 +115,16 @@ const Index = () => {
               <HistoryIcon className="w-4 h-4 mr-2" />
               History
             </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/admin")}
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                Admin
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
