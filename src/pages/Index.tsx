@@ -31,7 +31,7 @@ const Index = () => {
               Find Songs That Match Your Beat
             </p>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Tap out a rhythm and discover tracks with matching tempo on Spotify, Apple Music, and more.
+              Upload your beat and discover tracks with matching tempo on Spotify.
             </p>
           </div>
         </div>

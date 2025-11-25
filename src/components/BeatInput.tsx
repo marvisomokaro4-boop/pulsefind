@@ -1,100 +1,106 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Activity, RotateCcw } from "lucide-react";
+import { Upload, Music, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { analyzeBPM } from "@/lib/bpmDetector";
 
 interface BeatInputProps {
   onBpmDetected: (bpm: number) => void;
 }
 
 const BeatInput = ({ onBpmDetected }: BeatInputProps) => {
-  const [taps, setTaps] = useState<number[]>([]);
   const [bpm, setBpm] = useState<number | null>(null);
-  const [isActive, setIsActive] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  const calculateBpm = (tapTimes: number[]) => {
-    if (tapTimes.length < 2) return null;
-    
-    const intervals: number[] = [];
-    for (let i = 1; i < tapTimes.length; i++) {
-      intervals.push(tapTimes[i] - tapTimes[i - 1]);
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an audio file (MP3, WAV, etc.)",
+        variant: "destructive",
+      });
+      return;
     }
-    
-    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-    const beatsPerMinute = Math.round(60000 / avgInterval);
-    
-    return beatsPerMinute;
-  };
 
-  const handleTap = () => {
-    const now = Date.now();
-    const newTaps = [...taps, now];
-    
-    setTaps(newTaps);
-    setIsActive(true);
-    
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    timeoutRef.current = setTimeout(() => {
-      setIsActive(false);
-    }, 2000);
+    setFileName(file.name);
+    setIsAnalyzing(true);
 
-    if (newTaps.length >= 4) {
-      const detectedBpm = calculateBpm(newTaps);
-      if (detectedBpm) {
-        setBpm(detectedBpm);
-        onBpmDetected(detectedBpm);
-      }
-    }
-  };
-
-  const handleReset = () => {
-    setTaps([]);
-    setBpm(null);
-    setIsActive(false);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+    try {
+      const detectedBpm = await analyzeBPM(file);
+      setBpm(detectedBpm);
+      onBpmDetected(detectedBpm);
+      
+      toast({
+        title: "Beat Analyzed!",
+        description: `Detected ${detectedBpm} BPM`,
+      });
+    } catch (error) {
+      console.error('BPM detection error:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not analyze the audio file. Try another file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
 
   return (
     <div className="max-w-2xl mx-auto">
       <Card className="p-8 bg-card border-primary/20 shadow-lg">
         <div className="text-center space-y-6">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Activity className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground">Tap Your Beat</h2>
+            <Music className="w-6 h-6 text-primary" />
+            <h2 className="text-2xl font-bold text-foreground">Upload Your Beat</h2>
           </div>
           
           <p className="text-muted-foreground">
-            Tap the button at least 4 times to the rhythm of your beat
+            Upload an audio file to detect its BPM and find matching songs
           </p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
 
           <div className="relative">
             <Button
-              onClick={handleTap}
+              onClick={handleUploadClick}
+              disabled={isAnalyzing}
               size="lg"
-              className={`
-                w-48 h-48 rounded-full text-xl font-bold
-                bg-gradient-primary hover:opacity-90
-                transition-all duration-200
-                ${isActive ? 'scale-95 animate-pulse-glow' : 'scale-100'}
-              `}
+              className="w-48 h-48 rounded-full text-xl font-bold bg-gradient-primary hover:opacity-90 transition-all duration-200"
             >
-              TAP
+              {isAnalyzing ? (
+                <Loader2 className="w-12 h-12 animate-spin" />
+              ) : (
+                <div className="flex flex-col items-center gap-3">
+                  <Upload className="w-12 h-12" />
+                  <span>Upload</span>
+                </div>
+              )}
             </Button>
           </div>
+
+          {fileName && (
+            <p className="text-sm text-muted-foreground">
+              {fileName}
+            </p>
+          )}
 
           {bpm && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
@@ -104,20 +110,14 @@ const BeatInput = ({ onBpmDetected }: BeatInputProps) => {
               </div>
               
               <Button
-                onClick={handleReset}
+                onClick={handleUploadClick}
                 variant="outline"
                 className="gap-2"
               >
-                <RotateCcw className="w-4 h-4" />
-                Reset
+                <Upload className="w-4 h-4" />
+                Upload Another Beat
               </Button>
             </div>
-          )}
-
-          {taps.length > 0 && taps.length < 4 && (
-            <p className="text-sm text-muted-foreground">
-              {4 - taps.length} more tap{4 - taps.length !== 1 ? 's' : ''} needed
-            </p>
           )}
         </div>
       </Card>
