@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import BeatInput from "@/components/BeatInput";
 import SongResults from "@/components/SongResults";
+import BatchResults from "@/components/BatchResults";
 import { useToast } from "@/hooks/use-toast";
 
 interface Match {
@@ -20,8 +21,15 @@ interface Match {
   share_url?: string;
 }
 
+interface BeatResult {
+  fileName: string;
+  matches: Match[];
+  success: boolean;
+}
+
 const Index = () => {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [batchResults, setBatchResults] = useState<BeatResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
@@ -52,6 +60,13 @@ const Index = () => {
 
   const handleMatchesFound = (foundMatches: Match[]) => {
     setMatches(foundMatches);
+    setBatchResults([]);
+    setHasSearched(true);
+  };
+
+  const handleBatchResults = (results: BeatResult[]) => {
+    setBatchResults(results);
+    setMatches([]);
     setHasSearched(true);
   };
 
@@ -130,13 +145,17 @@ const Index = () => {
 
       {/* Beat Input Section */}
       <section className="container mx-auto px-4 py-16">
-        <BeatInput onMatchesFound={handleMatchesFound} />
+        <BeatInput 
+          onMatchesFound={handleMatchesFound}
+          onBatchResults={handleBatchResults}
+        />
       </section>
 
       {/* Results Section */}
       {hasSearched && (
         <section className="container mx-auto px-4 pb-16">
-          <SongResults matches={matches} />
+          {matches.length > 0 && <SongResults matches={matches} />}
+          {batchResults.length > 0 && <BatchResults results={batchResults} />}
         </section>
       )}
     </main>
