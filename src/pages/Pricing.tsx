@@ -26,6 +26,7 @@ const Pricing = () => {
       ],
       cta: 'Current Plan',
       priceId: null,
+      trial: false,
     },
     {
       name: 'Pro',
@@ -40,6 +41,7 @@ const Pricing = () => {
       ],
       cta: 'Upgrade to Pro',
       priceId: 'price_1SXUU4INPuTkGHVySZpLst8A',
+      trial: true,
       popular: true,
     },
     {
@@ -55,10 +57,11 @@ const Pricing = () => {
       ],
       cta: 'Upgrade to Elite',
       priceId: 'price_1SXUUHINPuTkGHVyMFqO7sPW',
+      trial: true,
     },
   ];
 
-  const handleSubscribe = async (planName: string, priceId: string | null) => {
+  const handleSubscribe = async (planName: string, priceId: string | null, hasTrial?: boolean) => {
     if (!priceId) {
       toast({
         title: 'Coming Soon',
@@ -76,8 +79,22 @@ const Pricing = () => {
         return;
       }
 
+      const body: any = { priceId };
+      
+      // Add trial parameter if applicable
+      if (hasTrial) {
+        body.trial = true;
+      }
+
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { priceId },
+        body: {
+          priceId,
+          ...(hasTrial && { 
+            subscription_data: { 
+              trial_period_days: 7 
+            } 
+          })
+        },
       });
 
       if (error) throw error;
@@ -180,7 +197,7 @@ const Pricing = () => {
                   className="w-full"
                   variant={plan.popular ? 'default' : 'outline'}
                   disabled={isCurrentPlan || loading !== null}
-                  onClick={() => handleSubscribe(plan.name, plan.priceId)}
+                  onClick={() => handleSubscribe(plan.name, plan.priceId, plan.trial)}
                 >
                   {loading === plan.name ? (
                     <>

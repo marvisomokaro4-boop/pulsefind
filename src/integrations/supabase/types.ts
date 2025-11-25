@@ -85,6 +85,51 @@ export type Database = {
           },
         ]
       }
+      beat_notifications: {
+        Row: {
+          beat_id: string
+          created_at: string | null
+          id: string
+          match_id: string
+          notified_at: string | null
+          read: boolean | null
+          user_id: string
+        }
+        Insert: {
+          beat_id: string
+          created_at?: string | null
+          id?: string
+          match_id: string
+          notified_at?: string | null
+          read?: boolean | null
+          user_id: string
+        }
+        Update: {
+          beat_id?: string
+          created_at?: string | null
+          id?: string
+          match_id?: string
+          notified_at?: string | null
+          read?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beat_notifications_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beat_notifications_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "beat_matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beats: {
         Row: {
           file_name: string

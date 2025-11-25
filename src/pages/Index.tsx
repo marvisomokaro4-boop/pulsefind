@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music2, LogOut, History as HistoryIcon, Shield, Crown } from "lucide-react";
+import { Music2, LogOut, History as HistoryIcon, Shield, Crown, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Button } from "@/components/ui/button";
@@ -137,6 +137,16 @@ const Index = () => {
               <HistoryIcon className="w-4 h-4 mr-2" />
               History
             </Button>
+            {plan === 'Elite' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/notifications")}
+              >
+                <Bell className="w-4 h-4 mr-2" />
+                Notifications
+              </Button>
+            )}
             {isAdmin && (
               <Button
                 variant="outline"
