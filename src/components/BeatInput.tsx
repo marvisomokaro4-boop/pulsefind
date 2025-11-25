@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
-import { Upload, Loader2, Check, Music } from "lucide-react";
+import { Upload, Check, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import AnalysisProgress from "./AnalysisProgress";
 
 interface Match {
   title: string;
@@ -44,6 +46,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
   const [totalFiles, setTotalFiles] = useState(0);
   const [beatYear, setBeatYear] = useState<string>("");
   const [searchAllTime, setSearchAllTime] = useState(false);
+  const [currentFileSize, setCurrentFileSize] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -178,6 +181,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
     setTotalFiles(filesArray.length);
     setProcessedCount(0);
     setFileName(isBatch ? `${filesArray.length} files` : filesArray[0].name);
+    setCurrentFileSize(filesArray[0].size);
     setIsAnalyzing(true);
     setIsComplete(false);
 
@@ -186,6 +190,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
       const results: BeatResult[] = [];
       
       for (let i = 0; i < filesArray.length; i++) {
+        setCurrentFileSize(filesArray[i].size);
         const result = await processFile(filesArray[i]);
         results.push(result);
         setProcessedCount(i + 1);
@@ -338,25 +343,20 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
         )}
 
         {isAnalyzing && (
-          <div className="py-8 space-y-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-            <div className="space-y-2">
-              <p className="font-medium">
-                {isBatchMode ? 'Analyzing beats...' : 'Identifying your beat...'}
-              </p>
-              {fileName && (
-                <p className="text-sm text-muted-foreground">{fileName}</p>
-              )}
-              {isBatchMode && (
+          <>
+            {isBatchMode && (
+              <div className="py-4 space-y-2 border-b border-border mb-4">
                 <p className="text-sm font-medium text-primary">
-                  Processing: {processedCount} / {totalFiles}
+                  Processing file {processedCount + 1} of {totalFiles}
                 </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Searching across multiple platforms...
-              </p>
-            </div>
-          </div>
+                <Progress value={(processedCount / totalFiles) * 100} className="h-2" />
+              </div>
+            )}
+            <AnalysisProgress 
+              fileName={fileName}
+              fileSize={currentFileSize}
+            />
+          </>
         )}
 
         {isComplete && !isAnalyzing && (
