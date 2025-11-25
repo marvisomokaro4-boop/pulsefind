@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Menu, Music, History, Bell, CreditCard, LogOut, LogIn, Settings, User, MessageSquare } from "lucide-react";
+import { Menu, Music, History, Bell, CreditCard, LogOut, LogIn, Settings, User, MessageSquare, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useNavigate } from "react-router-dom";
@@ -50,6 +50,7 @@ export const Navigation = () => {
     { to: "/history", label: "History", icon: History, show: !!user },
     { to: "/notifications", label: "Notifications", icon: Bell, show: !!user && plan === "Elite" },
     { to: "/pricing", label: "Pricing", icon: CreditCard, show: true },
+    { to: "/about", label: "About", icon: Info, show: true },
     { to: "/feedback", label: "Feedback", icon: MessageSquare, show: true },
   ];
 
