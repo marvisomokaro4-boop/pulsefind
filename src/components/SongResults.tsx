@@ -1,6 +1,14 @@
 import { Card } from "@/components/ui/card";
-import { Music, ExternalLink, Shield, Play, X } from "lucide-react";
+import { Music, ExternalLink, Shield, Play, X, Flag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
 import ConfidenceFilter from "./ConfidenceFilter";
 import AlbumCover from "./AlbumCover";
 import AudioPreview from "./AudioPreview";
@@ -29,6 +37,21 @@ interface SongResultsProps {
 
 const SongResults = ({ matches }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
+  const { toast } = useToast();
+
+  const handleReportMissingLink = (match: Match, platform: string) => {
+    toast({
+      title: "Missing Link Reported",
+      description: `Thanks for reporting that "${match.title}" by ${match.artist} is available on ${platform}. We'll work on improving our matching.`,
+    });
+    
+    // Could save to database for future improvements
+    console.log(`Missing link report: ${match.title} by ${match.artist} on ${platform}`, {
+      spotify_id: match.spotify_id,
+      apple_music_id: match.apple_music_id,
+      youtube_id: match.youtube_id,
+    });
+  };
 
   if (matches.length === 0) {
     return (
@@ -230,6 +253,42 @@ const SongResults = ({ matches }: SongResultsProps) => {
                   <ExternalLink className="w-4 h-4" />
                 </a>
               )}
+
+              {/* Report Missing Link Button */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                  >
+                    <Flag className="w-3 h-3 mr-2" />
+                    Report Missing Link
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-56">
+                  {!match.spotify_url && (
+                    <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Spotify")}>
+                      Available on Spotify
+                    </DropdownMenuItem>
+                  )}
+                  {!match.apple_music_url && (
+                    <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Apple Music")}>
+                      Available on Apple Music
+                    </DropdownMenuItem>
+                  )}
+                  {!match.youtube_url && (
+                    <DropdownMenuItem onClick={() => handleReportMissingLink(match, "YouTube")}>
+                      Available on YouTube
+                    </DropdownMenuItem>
+                  )}
+                  {match.spotify_url && match.apple_music_url && match.youtube_url && (
+                    <DropdownMenuItem disabled>
+                      All platforms detected
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </Card>
         ))}
