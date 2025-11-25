@@ -21,8 +21,17 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   const [plan, setPlan] = useState('Free');
   const [scansPerDay, setScansPerDay] = useState(3);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasAuthError, setHasAuthError] = useState(false);
 
   const refreshSubscription = async () => {
+    // If we've detected an auth error, don't keep trying until user logs in again
+    if (hasAuthError) {
+      setPlan('Free');
+      setScansPerDay(3);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // First, get and validate the current session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -47,6 +56,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         if (refreshError || !newSession) {
           console.error('Session refresh failed:', refreshError);
           // Sign out to clear stale session
+          setHasAuthError(true);
           await supabase.auth.signOut();
           setPlan('Free');
           setScansPerDay(3);
@@ -63,7 +73,8 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         // If we get an auth error, the session is completely invalid
         if (error.message?.includes('Auth') || error.message?.includes('session')) {
           console.log('Invalid session detected, signing out...');
-          // Sign out to clear stale session and force fresh login
+          // Sign out to clear stale session and stop retrying
+          setHasAuthError(true);
           await supabase.auth.signOut();
           setPlan('Free');
           setScansPerDay(3);
@@ -92,8 +103,10 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setHasAuthError(false); // Reset auth error flag on successful sign in
         refreshSubscription();
       } else if (event === 'SIGNED_OUT') {
+        setHasAuthError(false); // Reset auth error flag
         setPlan('Free');
         setScansPerDay(3);
         setIsLoading(false);
@@ -107,7 +120,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       subscription.unsubscribe();
       clearInterval(interval);
     };
-  }, []);
+  }, [hasAuthError]);
 
   return (
     <SubscriptionContext.Provider value={{ plan, scansPerDay, isLoading, refreshSubscription }}>
