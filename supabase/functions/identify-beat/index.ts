@@ -346,23 +346,48 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
   }
 
   try {
-    // Extract segments from beginning, middle, and end of the beat
+    // Extract 7 segments across the beat for comprehensive analysis
     const fileSize = arrayBuffer.byteLength;
     const segments = [];
     
-    // Beginning (0-500KB)
-    segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, 0, 'beginning'));
+    // Always analyze beginning
+    segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, 0, 'beginning (0%)'));
     
-    // Middle (if file is large enough)
-    if (fileSize > 1000 * 1024) {
-      const middleStart = Math.floor(fileSize / 2) - 250 * 1024;
-      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, middleStart, 'middle'));
+    // Additional segments based on file size
+    if (fileSize > 500 * 1024) {
+      // 12.5% mark
+      const segment12 = Math.floor(fileSize * 0.125);
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, segment12, '12.5% mark'));
     }
     
-    // End (if file is large enough)
+    if (fileSize > 1000 * 1024) {
+      // 25% mark
+      const segment25 = Math.floor(fileSize * 0.25);
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, segment25, '25% mark'));
+    }
+    
+    if (fileSize > 1500 * 1024) {
+      // Middle (50%)
+      const middleStart = Math.floor(fileSize / 2) - 250 * 1024;
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, middleStart, 'middle (50%)'));
+    }
+    
+    if (fileSize > 2000 * 1024) {
+      // 75% mark
+      const segment75 = Math.floor(fileSize * 0.75) - 250 * 1024;
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, segment75, '75% mark'));
+    }
+    
+    if (fileSize > 2500 * 1024) {
+      // 87.5% mark
+      const segment87 = Math.floor(fileSize * 0.875) - 250 * 1024;
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, segment87, '87.5% mark'));
+    }
+    
+    // Always analyze end if file is large enough
     if (fileSize > 500 * 1024) {
       const endStart = Math.max(0, fileSize - 500 * 1024);
-      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, endStart, 'end'));
+      segments.push(identifySegmentWithACRCloud(arrayBuffer, fileName, endStart, 'end (100%)'));
     }
 
     // Process all segments in parallel
