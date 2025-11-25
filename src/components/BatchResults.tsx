@@ -14,6 +14,8 @@ interface Match {
   spotify_url?: string;
   apple_music_id?: string;
   apple_music_url?: string;
+  youtube_id?: string;
+  youtube_url?: string;
   share_url?: string;
   album_cover_url?: string;
   preview_url?: string;
@@ -47,6 +49,14 @@ const BatchResults = ({ results }: BatchResultsProps) => {
       window.open(appleMusicUrl, '_blank');
     } else if (appleMusicId) {
       window.open(`https://music.apple.com/us/album/${appleMusicId}`, '_blank');
+    }
+  };
+
+  const openYouTubeMusic = (youtubeId?: string, youtubeUrl?: string) => {
+    if (youtubeUrl) {
+      window.open(youtubeUrl, '_blank');
+    } else if (youtubeId) {
+      window.open(`https://music.youtube.com/watch?v=${youtubeId}`, '_blank');
     }
   };
 
@@ -168,7 +178,18 @@ const BatchResults = ({ results }: BatchResultsProps) => {
                           Apple
                         </Button>
                       )}
-                      {!match.spotify_id && !match.spotify_url && !match.apple_music_id && !match.apple_music_url && match.share_url && (
+                      {(match.youtube_id || match.youtube_url) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => openYouTubeMusic(match.youtube_id, match.youtube_url)}
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          YouTube
+                        </Button>
+                      )}
+                      {!match.spotify_id && !match.spotify_url && !match.apple_music_id && !match.apple_music_url && !match.youtube_id && !match.youtube_url && match.share_url && (
                         <Button
                           size="sm"
                           variant="outline"

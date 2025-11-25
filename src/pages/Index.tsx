@@ -18,6 +18,8 @@ interface Match {
   spotify_url?: string;
   apple_music_id?: string;
   apple_music_url?: string;
+  youtube_id?: string;
+  youtube_url?: string;
   share_url?: string;
   album_cover_url?: string;
   preview_url?: string;

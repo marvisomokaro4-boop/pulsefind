@@ -17,6 +17,8 @@ interface Match {
   spotify_url?: string;
   apple_music_id?: string;
   apple_music_url?: string;
+  youtube_id?: string;
+  youtube_url?: string;
   share_url?: string;
   album_cover_url?: string;
   preview_url?: string;
@@ -103,6 +105,8 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
               spotify_url: match.spotify_url,
               apple_music_id: match.apple_music_id,
               apple_music_url: match.apple_music_url,
+              youtube_id: match.youtube_id,
+              youtube_url: match.youtube_url,
               share_url: match.share_url,
               release_date: match.release_date,
               album_cover_url: match.album_cover_url,

@@ -18,6 +18,7 @@ interface BeatWithMatches {
     source: string;
     spotify_url?: string;
     apple_music_url?: string;
+    youtube_url?: string;
     release_date?: string;
   }>;
 }
@@ -183,6 +184,18 @@ const History = () => {
                             >
                               <ExternalLink className="w-4 h-4 mr-1" />
                               Apple
+                            </Button>
+                          )}
+                          {match.youtube_url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                window.open(match.youtube_url, "_blank")
+                              }
+                            >
+                              <ExternalLink className="w-4 h-4 mr-1" />
+                              YouTube
                             </Button>
                           )}
                         </div>
