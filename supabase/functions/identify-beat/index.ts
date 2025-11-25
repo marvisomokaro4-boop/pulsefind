@@ -73,7 +73,7 @@ async function searchAppleMusic(title: string, artist: string): Promise<string |
   try {
     const searchQuery = encodeURIComponent(`${title} ${artist}`);
     const response = await fetch(
-      `https://itunes.apple.com/search?term=${searchQuery}&media=music&entity=song&limit=1`
+      `https://itunes.apple.com/search?term=${searchQuery}&media=music&entity=song&limit=5`
     );
     
     if (!response.ok) {
@@ -84,9 +84,30 @@ async function searchAppleMusic(title: string, artist: string): Promise<string |
     const data = await response.json();
     
     if (data.results && data.results.length > 0) {
-      const trackId = data.results[0].trackId;
-      console.log(`Found Apple Music ID via iTunes Search: ${trackId} for "${title}" by ${artist}`);
-      return trackId?.toString() || null;
+      // Normalize strings for comparison
+      const normalizeString = (str: string) => 
+        str.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      const normalizedTitle = normalizeString(title);
+      const normalizedArtist = normalizeString(artist);
+      
+      // Find the best match
+      for (const result of data.results) {
+        const resultTitle = normalizeString(result.trackName || '');
+        const resultArtist = normalizeString(result.artistName || '');
+        
+        // Check if title and artist match closely
+        if (resultTitle.includes(normalizedTitle) || normalizedTitle.includes(resultTitle)) {
+          if (resultArtist.includes(normalizedArtist) || normalizedArtist.includes(resultArtist)) {
+            console.log(`Found Apple Music match via iTunes Search: ${result.trackId} - "${result.trackName}" by ${result.artistName}`);
+            return result.trackId?.toString() || null;
+          }
+        }
+      }
+      
+      // If no exact match found, log the first result for debugging
+      console.log(`No exact match found. First result was: "${data.results[0].trackName}" by ${data.results[0].artistName} (ID: ${data.results[0].trackId})`);
+      console.log(`Searched for: "${title}" by ${artist}`);
     }
     
     return null;
