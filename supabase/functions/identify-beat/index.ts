@@ -68,6 +68,34 @@ async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{
   }
 }
 
+// Helper function to search Apple Music using iTunes Search API
+async function searchAppleMusic(title: string, artist: string): Promise<string | null> {
+  try {
+    const searchQuery = encodeURIComponent(`${title} ${artist}`);
+    const response = await fetch(
+      `https://itunes.apple.com/search?term=${searchQuery}&media=music&entity=song&limit=1`
+    );
+    
+    if (!response.ok) {
+      console.error('iTunes Search API error:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.results && data.results.length > 0) {
+      const trackId = data.results[0].trackId;
+      console.log(`Found Apple Music ID via iTunes Search: ${trackId} for "${title}" by ${artist}`);
+      return trackId?.toString() || null;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error searching Apple Music:', error);
+    return null;
+  }
+}
+
 interface ACRCloudResponse {
   status: {
     msg: string;
@@ -371,17 +399,26 @@ serve(async (req) => {
     if (spotifyToken) {
       console.log('Fetching Spotify track details...');
       matches = await Promise.all(matches.map(async (track: any) => {
+        let apple_music_id = track.apple_music_id;
+        
+        // Fallback: Search Apple Music if ID not provided by ACRCloud
+        if (!apple_music_id && track.title && track.artist) {
+          console.log(`Apple Music ID not found for "${track.title}", searching iTunes...`);
+          apple_music_id = await searchAppleMusic(track.title, track.artist);
+        }
+        
         if (track.spotify_id) {
           try {
             const { artworkUrl, previewUrl } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
             
             // Construct platform URLs
             const spotify_url = `https://open.spotify.com/track/${track.spotify_id}`;
-            const apple_music_url = track.apple_music_id ? `https://music.apple.com/us/song/${track.apple_music_id}` : null;
+            const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
             const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
             
             return { 
-              ...track, 
+              ...track,
+              apple_music_id,
               album_cover_url: artworkUrl || track.album_cover_url,
               preview_url: previewUrl,
               spotify_url,
@@ -394,29 +431,39 @@ serve(async (req) => {
         }
         
         // Even without Spotify, construct URLs for other platforms
-        const apple_music_url = track.apple_music_id ? `https://music.apple.com/us/song/${track.apple_music_id}` : null;
+        const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
         const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
         
         return {
           ...track,
+          apple_music_id,
           apple_music_url,
           youtube_url
         };
       }));
     } else {
-      // No Spotify token, but still construct URLs for other platforms
-      matches = matches.map((track: any) => {
+      // No Spotify token, but still construct URLs for other platforms and search Apple Music
+      matches = await Promise.all(matches.map(async (track: any) => {
+        let apple_music_id = track.apple_music_id;
+        
+        // Fallback: Search Apple Music if ID not provided by ACRCloud
+        if (!apple_music_id && track.title && track.artist) {
+          console.log(`Apple Music ID not found for "${track.title}", searching iTunes...`);
+          apple_music_id = await searchAppleMusic(track.title, track.artist);
+        }
+        
         const spotify_url = track.spotify_id ? `https://open.spotify.com/track/${track.spotify_id}` : null;
-        const apple_music_url = track.apple_music_id ? `https://music.apple.com/us/song/${track.apple_music_id}` : null;
+        const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
         const youtube_url = track.youtube_id ? `https://music.youtube.com/watch?v=${track.youtube_id}` : null;
         
         return {
           ...track,
+          apple_music_id,
           spotify_url,
           apple_music_url,
           youtube_url
         };
-      });
+      }));
     }
 
     // Filter by beat year if provided
