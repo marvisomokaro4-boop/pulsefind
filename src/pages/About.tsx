@@ -12,8 +12,8 @@ const About = () => {
 
   const faqs = [
     {
-      question: "How does BeatFinder identify my beats in songs?",
-      answer: "BeatFinder uses advanced audio fingerprinting technology similar to Shazam and YouTube Content ID. When you upload your beat, we analyze its unique audio signature and compare it against millions of songs across streaming platforms to find matches."
+      question: "How does PulseFind identify my beats in songs?",
+      answer: "PulseFind uses advanced audio fingerprinting technology similar to Shazam and YouTube Content ID. When you upload your beat, we analyze its unique audio signature and compare it against millions of songs across streaming platforms to find matches."
     },
     {
       question: "Which streaming platforms are supported?",
@@ -54,7 +54,7 @@ const About = () => {
           </div>
         </div>
         <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-          About BeatFinder
+          About PulseFind
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           The ultimate tool for producers to discover which songs use their beats across all major streaming platforms
@@ -69,10 +69,10 @@ const About = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-foreground">
-              BeatFinder was created to solve a critical problem that producers face: tracking where and how their beats are being used across the music industry. Using advanced audio fingerprinting technology similar to Shazam and YouTube Content ID, we help you discover every song that incorporates your beats.
+              PulseFind was created to solve a critical problem that producers face: tracking where and how their beats are being used across the music industry. Using advanced audio fingerprinting technology similar to Shazam and YouTube Content ID, we help you discover every song that incorporates your beats.
             </p>
             <p className="text-foreground">
-              Whether you're an established producer or just starting out, BeatFinder gives you the insights you need to understand your impact across Spotify, Apple Music, YouTube Music, and more.
+              Whether you're an established producer or just starting out, PulseFind gives you the insights you need to understand your impact across Spotify, Apple Music, YouTube Music, and more.
             </p>
           </CardContent>
         </Card>
@@ -165,7 +165,7 @@ const About = () => {
         <Card>
           <CardHeader>
             <CardTitle>Frequently Asked Questions</CardTitle>
-            <CardDescription>Everything you need to know about BeatFinder</CardDescription>
+            <CardDescription>Everything you need to know about PulseFind</CardDescription>
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="w-full">

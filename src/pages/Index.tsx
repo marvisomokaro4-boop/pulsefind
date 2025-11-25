@@ -117,7 +117,7 @@ const Index = () => {
       {/* Top Navigation */}
       <div className="border-b border-border bg-card/50 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">BeatMatch</h2>
+          <h2 className="text-lg font-semibold">PulseFind</h2>
           <div className="flex gap-2 items-center">
             {!isLoading && (
               <Button
@@ -185,7 +185,7 @@ const Index = () => {
               </div>
             </div>
             <h1 className="text-6xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent">
-              BeatMatch
+              PulseFind
             </h1>
             <p className="text-2xl text-muted-foreground mb-4">
               Discover Who's Using Your Beats
