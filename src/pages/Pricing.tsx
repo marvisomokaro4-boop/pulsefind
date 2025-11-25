@@ -57,7 +57,7 @@ const Pricing = () => {
       ],
       cta: 'Upgrade to Elite',
       priceId: 'price_1SXUUHINPuTkGHVyMFqO7sPW',
-      trial: true,
+      trial: false,
     },
   ];
 
