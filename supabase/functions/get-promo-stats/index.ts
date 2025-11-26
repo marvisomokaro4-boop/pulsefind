@@ -39,16 +39,23 @@ serve(async (req) => {
 
     logStep("User count retrieved", { totalUsers });
 
-    // Calculate remaining spots (max 100 promotional spots)
+    // Calculate remaining spots (max 100 promotional spots, starting from user 3)
+    // Users 1-2 are excluded, users 3-102 get the promo (100 total spots)
     const PROMO_LIMIT = 100;
-    const remainingSpots = Math.max(0, PROMO_LIMIT - (totalUsers || 0));
-    const promoActive = (totalUsers || 0) < PROMO_LIMIT;
+    const PROMO_START_USER = 3; // Start from user 3 (skip first 2)
+    const PROMO_END_USER = PROMO_START_USER + PROMO_LIMIT - 1; // User 102
+    
+    // Calculate how many promo spots have been claimed
+    const claimedSpots = Math.max(0, Math.min(PROMO_LIMIT, (totalUsers || 0) - (PROMO_START_USER - 1)));
+    const remainingSpots = Math.max(0, PROMO_LIMIT - claimedSpots);
+    const promoActive = (totalUsers || 0) < PROMO_END_USER;
 
-    logStep("Calculated stats", { remainingSpots, promoActive });
+    logStep("Calculated stats", { totalUsers, claimedSpots, remainingSpots, promoActive });
 
     return new Response(
       JSON.stringify({
         total_users: totalUsers || 0,
+        claimed_spots: claimedSpots,
         remaining_spots: remainingSpots,
         promo_limit: PROMO_LIMIT,
         promo_active: promoActive,

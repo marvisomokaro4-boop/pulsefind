@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface PromoStats {
   total_users: number;
+  claimed_spots: number;
   remaining_spots: number;
   promo_limit: number;
   promo_active: boolean;
@@ -40,7 +41,7 @@ export const PromoCounter = () => {
     return null;
   }
 
-  const percentageClaimed = ((stats.promo_limit - stats.remaining_spots) / stats.promo_limit) * 100;
+  const percentageClaimed = (stats.claimed_spots / stats.promo_limit) * 100;
 
   return (
     <Card className="bg-gradient-to-br from-primary/20 via-primary/10 to-secondary/20 border-primary/30 p-6 shadow-lg">
@@ -60,7 +61,7 @@ export const PromoCounter = () => {
             <Users className="w-4 h-4 text-primary" />
             <span className="text-xs text-muted-foreground">Claimed</span>
           </div>
-          <p className="text-2xl font-bold">{stats.promo_limit - stats.remaining_spots}</p>
+          <p className="text-2xl font-bold">{stats.claimed_spots}</p>
         </div>
 
         <div className="bg-background/50 rounded-lg p-3 border border-green-500/50">
