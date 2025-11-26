@@ -228,6 +228,23 @@ interface ACRCloudResponse {
   };
 }
 
+interface ShazamResponse {
+  track?: {
+    title: string;
+    subtitle: string;
+    share: {
+      href: string;
+    };
+    hub?: {
+      providers?: Array<{
+        type: string;
+        actions: Array<{
+          uri: string;
+        }>;
+      }>;
+    };
+  };
+}
 
 async function identifySegmentWithACRCloud(
   arrayBuffer: ArrayBuffer, 
@@ -245,8 +262,7 @@ async function identifySegmentWithACRCloud(
   }
 
   try {
-    // OPTIMIZED: Use up to 1MB per segment (increased from 500KB)
-    const sampleSize = Math.min(arrayBuffer.byteLength - segmentStart, 1024 * 1024);
+    const sampleSize = Math.min(arrayBuffer.byteLength - segmentStart, 500 * 1024); // 500KB max
     const audioSample = arrayBuffer.slice(segmentStart, segmentStart + sampleSize);
     const audioData = new Uint8Array(audioSample);
     
@@ -342,12 +358,11 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
 
   try {
     const fileSize = arrayBuffer.byteLength;
-    // OPTIMIZED: Larger segments with more overlap for better context
-    const segmentSize = 1024 * 1024; // 1MB per segment (increased from 500KB)
-    const overlapSize = 512 * 1024; // 512KB overlap (increased from 250KB)
+    const segmentSize = 500 * 1024; // 500KB per segment
+    const overlapSize = 250 * 1024; // 250KB overlap between segments for comprehensive coverage
     const segments = [];
     
-    console.log(`Analyzing entire beat: ${fileSize} bytes with OPTIMIZED overlapping segments (1MB size, 512KB overlap)`);
+    console.log(`Analyzing entire beat: ${fileSize} bytes with overlapping segments`);
     
     // Calculate number of segments needed to cover 100% of the beat
     let offset = 0;
@@ -378,7 +393,7 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
       if (remainingBytes <= segmentSize) break;
     }
     
-    console.log(`Created ${segments.length} OPTIMIZED overlapping segments for complete beat coverage`);
+    console.log(`Created ${segments.length} overlapping segments for complete beat coverage`);
 
     // Process all segments in parallel
     const allSegmentResults = await Promise.all(segments);
@@ -401,8 +416,8 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Convert to array and sort by confidence
     let results = Array.from(trackMap.values());
     
-    // OPTIMIZED: Lower threshold to 35 (from 40) to catch more potential matches
-    results = results.filter(track => track.confidence >= 35);
+    // Filter out very low-confidence matches (below 40)
+    results = results.filter(track => track.confidence >= 40);
     
     // Sort by confidence (descending)
     results.sort((a, b) => b.confidence - a.confidence);
@@ -410,7 +425,7 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Return top 99 matches to show comprehensive results
     const topMatches = results.slice(0, 99);
     
-    console.log(`Returning ${topMatches.length} matches (filtered below 35% confidence)`);
+    console.log(`Returning ${topMatches.length} matches (filtered below 40% confidence)`);
     
     return topMatches;
   } catch (error) {
@@ -419,8 +434,49 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
   }
 }
 
+async function identifyWithShazam(arrayBuffer: ArrayBuffer): Promise<any[]> {
+  const shazamApiKey = Deno.env.get('SHAZAM_API_KEY');
 
+  if (!shazamApiKey) {
+    console.log('Shazam API key not configured');
+    return [];
+  }
 
+  try {
+
+    const response = await fetch('https://shazam.p.rapidapi.com/songs/v2/detect', {
+      method: 'POST',
+      headers: {
+        'x-rapidapi-key': shazamApiKey,
+        'x-rapidapi-host': 'shazam.p.rapidapi.com',
+        'Content-Type': 'text/plain',
+      },
+      body: arrayBuffer,
+    });
+
+    const data: ShazamResponse = await response.json();
+    console.log('Shazam response:', JSON.stringify(data));
+
+    if (data.track) {
+      const spotifyProvider = data.track.hub?.providers?.find(p => p.type === 'SPOTIFY');
+      const appleMusicProvider = data.track.hub?.providers?.find(p => p.type === 'APPLEMUSIC');
+
+      return [{
+        title: data.track.title,
+        artist: data.track.subtitle,
+        source: 'Shazam',
+        share_url: data.track.share.href,
+        spotify_url: spotifyProvider?.actions[0]?.uri,
+        apple_music_url: appleMusicProvider?.actions[0]?.uri,
+      }];
+    }
+
+    return [];
+  } catch (error) {
+    console.error('Shazam error:', error);
+    return [];
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -479,12 +535,23 @@ serve(async (req) => {
     // Get audio file as ArrayBuffer
     const arrayBuffer = await audioFile.arrayBuffer();
 
-    // Run ACRCloud fingerprinting
-    console.log('Querying ACRCloud...');
-    const acrcloudResults = await identifyWithACRCloud(arrayBuffer, audioFile.name);
+    // Run both APIs in parallel
+    const [acrcloudResults, shazamResults] = await Promise.all([
+      identifyWithACRCloud(arrayBuffer, audioFile.name),
+      identifyWithShazam(arrayBuffer),
+    ]);
 
-    // Use ACRCloud results directly
-    let matches = acrcloudResults;
+    // Combine and deduplicate results
+    const allResults = [...acrcloudResults, ...shazamResults];
+    const uniqueResults = allResults.reduce((acc, result) => {
+      const key = `${result.title}-${result.artist}`;
+      if (!acc.has(key)) {
+        acc.set(key, result);
+      }
+      return acc;
+    }, new Map());
+
+    let matches = Array.from(uniqueResults.values());
 
     // Fetch Spotify track details (artwork and preview URLs) for tracks with spotify_id
     const spotifyToken = await getSpotifyToken();
@@ -578,7 +645,7 @@ serve(async (req) => {
       console.log(`After year filter (${filterYear}):`, matches.length, 'matches');
     }
 
-    console.log('Found matches from ACRCloud:', matches.length);
+    console.log('Found matches:', matches.length);
 
     return new Response(
       JSON.stringify({ 
@@ -586,10 +653,7 @@ serve(async (req) => {
         matches,
         sources_used: {
           acrcloud: acrcloudResults.length > 0,
-        },
-        optimization_applied: {
-          larger_segments: true,
-          enhanced_overlap: true,
+          shazam: shazamResults.length > 0,
         }
       }),
       { 

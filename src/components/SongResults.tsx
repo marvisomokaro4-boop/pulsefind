@@ -15,6 +15,8 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import ConfidenceFilter from "./ConfidenceFilter";
 import AlbumCover from "./AlbumCover";
 import AudioPreview from "./AudioPreview";
+import SimilarSongs from "./SimilarSongs";
+import CopyrightAnalysis from "./CopyrightAnalysis";
 import { useState } from "react";
 
 interface Match {
@@ -146,7 +148,7 @@ const SongResults = ({ matches }: SongResultsProps) => {
       <div className="text-center">
         <h2 className="text-3xl font-bold mb-2">Songs Using Your Beat</h2>
         <p className="text-muted-foreground">
-          Total: {matches.length} result{matches.length !== 1 ? 's' : ''} ({highConfidenceMatches.length} high-confidence, {lowConfidenceMatches.length} low-confidence)
+          Found {highConfidenceMatches.length} high-confidence match{highConfidenceMatches.length !== 1 ? 'es' : ''}
         </p>
       </div>
 
@@ -383,7 +385,7 @@ const SongResults = ({ matches }: SongResultsProps) => {
                 {matches.length - FREE_TIER_LIMIT} More Results Available
               </h3>
               <p className="text-muted-foreground mb-4">
-                Upgrade to Pro to see all {matches.length} matches
+                Upgrade to Pro to see all {matches.length} matches and unlock advanced features
               </p>
             </div>
             <Button onClick={() => navigate('/pricing')} size="lg">
@@ -392,6 +394,14 @@ const SongResults = ({ matches }: SongResultsProps) => {
             </Button>
           </div>
         </Card>
+      )}
+
+      {/* Pro Features: Similar Songs & Copyright Detection */}
+      {isPro && matches.length > 0 && (
+        <div className="grid md:grid-cols-2 gap-6 mt-8">
+          <SimilarSongs matches={matches} />
+          <CopyrightAnalysis matches={matches} beatName="Your Beat" />
+        </div>
       )}
     </div>
   );
