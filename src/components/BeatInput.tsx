@@ -76,11 +76,28 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
   const navigate = useNavigate();
 
   const processFile = async (file: File): Promise<BeatResult> => {
-
     try {
+      // Preprocess audio to standard format (16-bit PCM WAV, 44.1kHz)
+      console.log('[BEAT-INPUT] Preprocessing audio before upload...');
+      const { preprocessAudioFile } = await import('@/lib/audioPreprocessor');
+      const preprocessedBlob = await preprocessAudioFile(file);
+      
+      // Create a new File object from the preprocessed blob
+      const preprocessedFile = new File(
+        [preprocessedBlob], 
+        file.name.replace(/\.\w+$/, '.wav'), 
+        { type: 'audio/wav' }
+      );
+      
+      console.log('[BEAT-INPUT] Audio preprocessed:', {
+        originalSize: file.size,
+        preprocessedSize: preprocessedFile.size,
+        format: 'WAV 44.1kHz 16-bit mono'
+      });
+
       // Create FormData to send the audio file
       const formData = new FormData();
-      formData.append('audio', file);
+      formData.append('audio', preprocessedFile);
       
       // Add year filter if specified
       if (!searchAllTime && beatYear) {

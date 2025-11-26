@@ -275,19 +275,27 @@ async function identifyWithSimplifiedACRCloud(
   console.log(`Deep Scan Mode: ${deepScan ? 'ENABLED (7 segments)' : 'DISABLED (3 segments)'}`);
   console.log(`Matching Mode: ${matchingMode.toUpperCase()} (${matchingMode === 'strict' ? '≥85%' : '≥40%'} confidence)`);
   
-  // Define fixed segments based on scan mode
+  // Enhanced multi-resolution segment strategy
+  // Full audio + 15s, 20s, 30s segments at strategic positions
   const segments = deepScan ? [
-    { offset: 0, name: 'START (0%)' },
-    { offset: Math.floor(fileSize * 0.2), name: 'EARLY (20%)' },
-    { offset: Math.floor(fileSize * 0.35), name: 'MID-EARLY (35%)' },
-    { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
-    { offset: Math.floor(fileSize * 0.65), name: 'MID-LATE (65%)' },
-    { offset: Math.floor(fileSize * 0.8), name: 'LATE (80%)' },
-    { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
+    // Full audio scan (comprehensive)
+    { offset: 0, name: 'FULL AUDIO (0%)' },
+    // Early segments (catch intro/build)
+    { offset: Math.floor(fileSize * 0.1), name: '15s@10%' },
+    { offset: Math.floor(fileSize * 0.2), name: '20s@20%' },
+    // Mid segments (main drop/hook - most distinctive)
+    { offset: Math.floor(fileSize * 0.35), name: '30s@35%' },
+    { offset: Math.floor(fileSize * 0.5), name: '30s@50%' },
+    { offset: Math.floor(fileSize * 0.65), name: '20s@65%' },
+    // Late segments (outro/variations)
+    { offset: Math.floor(fileSize * 0.8), name: '20s@80%' },
+    { offset: Math.floor(fileSize * 0.9), name: '15s@90%' }
   ] : [
-    { offset: 0, name: 'START (0%)' },
-    { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
-    { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
+    // Standard scan: full + key positions
+    { offset: 0, name: 'FULL AUDIO (0%)' },
+    { offset: Math.floor(fileSize * 0.3), name: '30s@30%' },
+    { offset: Math.floor(fileSize * 0.6), name: '30s@60%' },
+    { offset: Math.floor(fileSize * 0.85), name: '15s@85%' }
   ];
   
   console.log(`Scanning ${segments.length} segments: ${segments.map(s => s.name).join(', ')}\n`);
@@ -572,36 +580,63 @@ serve(async (req) => {
     let spotifySuccess = 0;
     let spotifyFailed = 0;
     
-    // Run YouTube and Spotify searches in parallel for each ACRCloud result
-    const multiSourcePromises = songsToSearch.flatMap(song => [
-      searchYouTube(song.title, song.artist).catch(err => {
-        console.error(`❌ YouTube search failed for "${song.title}" by ${song.artist}:`, err.message);
-        youtubeFailed++;
-        return [];
+    // Import multi-platform search
+    const { searchAllPlatforms } = await import('../_shared/multiPlatformSearch.ts');
+    const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY') || '';
+    
+    // Run enhanced multi-platform search (YouTube Music, TikTok, SoundCloud) + existing Spotify
+    const platformSearchPromises = songsToSearch.flatMap(song => [
+      searchAllPlatforms(song.title, song.artist, youtubeApiKey).catch(err => {
+        console.error(`❌ Multi-platform search failed for "${song.title}":`, err.message);
+        return { youtube: [], tiktok: [], soundcloud: [], totalFound: 0 };
       }),
       searchSpotify(song.title, song.artist).catch(err => {
-        console.error(`❌ Spotify search failed for "${song.title}" by ${song.artist}:`, err.message);
+        console.error(`❌ Spotify search failed for "${song.title}":`, err.message);
         spotifyFailed++;
         return [];
       })
     ]);
     
-    const multiSourceResults = await Promise.all(multiSourcePromises);
-    const youtubeMatches = multiSourceResults.filter((_, i) => i % 2 === 0).flat();
-    const spotifyMatches = multiSourceResults.filter((_, i) => i % 2 === 1).flat();
+    const platformResults = await Promise.all(platformSearchPromises);
     
-    // Count successful searches
-    youtubeSuccess = songsToSearch.length - youtubeFailed;
+    // Separate multi-platform results and Spotify results
+    const multiPlatformResults = platformResults.filter((_, i) => i % 2 === 0);
+    const spotifyMatches = platformResults.filter((_, i) => i % 2 === 1).flat();
+    
+    // Aggregate all YouTube Music results from multi-platform search
+    const youtubeMatches = multiPlatformResults.flatMap((r: any) => r.youtube || []);
+    const tiktokMatches = multiPlatformResults.flatMap((r: any) => r.tiktok || []);
+    const soundcloudMatches = multiPlatformResults.flatMap((r: any) => r.soundcloud || []);
+    
+    // Count successes
+    youtubeSuccess = multiPlatformResults.filter((r: any) => r.youtube?.length > 0).length;
+    const tiktokSuccess = multiPlatformResults.filter((r: any) => r.tiktok?.length > 0).length;
+    const soundcloudSuccess = multiPlatformResults.filter((r: any) => r.soundcloud?.length > 0).length;
     spotifySuccess = songsToSearch.length - spotifyFailed;
     
     console.log(`\n📊 PLATFORM SEARCH RESULTS:`);
-    console.log(`  YouTube: ${youtubeSuccess}/${songsToSearch.length} successful (${youtubeMatches.length} matches found, ${youtubeFailed} failed)`);
-    console.log(`  Spotify: ${spotifySuccess}/${songsToSearch.length} successful (${spotifyMatches.length} matches found, ${spotifyFailed} failed)`);
+    console.log(`  ACRCloud: ${acrcloudMatches.length} fingerprint matches`);
+    console.log(`  YouTube Music: ${youtubeSuccess}/${songsToSearch.length} successful (${youtubeMatches.length} matches)`);
+    console.log(`  TikTok: ${tiktokSuccess}/${songsToSearch.length} successful (${tiktokMatches.length} matches)`);
+    console.log(`  SoundCloud: ${soundcloudSuccess}/${songsToSearch.length} successful (${soundcloudMatches.length} matches)`);
+    console.log(`  Spotify: ${spotifySuccess}/${songsToSearch.length} successful (${spotifyMatches.length} matches)`);
     
     // Merge all results from all sources
     let allMatches: any[] = [...acrcloudMatches];
     
-    // Add YouTube matches that aren't already in ACRCloud results
+    // Helper function to merge platform data into existing match
+    const mergePlatformData = (existing: any, platformMatch: any, platformName: string, platformIdField: string, platformUrlField: string) => {
+      if (!existing[platformIdField] && platformMatch[platformIdField]) {
+        existing[platformIdField] = platformMatch[platformIdField];
+        existing[platformUrlField] = platformMatch[platformUrlField];
+      }
+      existing.sources = existing.sources || ['ACRCloud'];
+      if (!existing.sources.includes(platformName)) {
+        existing.sources.push(platformName);
+      }
+    };
+    
+    // Merge YouTube Music matches
     for (const ytMatch of youtubeMatches) {
       const ytMatchAny = ytMatch as any;
       const existing: any = allMatches.find((m: any) => 
@@ -611,18 +646,46 @@ serve(async (req) => {
       );
       
       if (existing) {
-        // Merge YouTube data into existing match
-        if (!existing.youtube_id && ytMatchAny.youtube_id) {
-          existing.youtube_id = ytMatchAny.youtube_id;
-          existing.youtube_url = ytMatchAny.youtube_url;
-        }
-        existing.sources = existing.sources || ['ACRCloud'];
-        if (!existing.sources.includes('YouTube')) {
-          existing.sources.push('YouTube');
-        }
+        mergePlatformData(existing, ytMatchAny, 'YouTube', 'youtube_id', 'youtube_url');
       } else {
         // Add as new match with YouTube as source
         allMatches.push({ ...ytMatchAny, sources: ['YouTube'] });
+      }
+    }
+    
+    // Merge TikTok matches
+    for (const ttMatch of tiktokMatches) {
+      const ttMatchAny = ttMatch as any;
+      const existing: any = allMatches.find((m: any) => 
+        (m.title.toLowerCase() === ttMatchAny.title.toLowerCase() && 
+         m.artist.toLowerCase() === ttMatchAny.artist.toLowerCase())
+      );
+      
+      if (existing) {
+        existing.sources = existing.sources || ['ACRCloud'];
+        if (!existing.sources.includes('TikTok')) {
+          existing.sources.push('TikTok');
+        }
+      } else {
+        allMatches.push({ ...ttMatchAny, sources: ['TikTok'] });
+      }
+    }
+    
+    // Merge SoundCloud matches
+    for (const scMatch of soundcloudMatches) {
+      const scMatchAny = scMatch as any;
+      const existing: any = allMatches.find((m: any) => 
+        (m.title.toLowerCase() === scMatchAny.title.toLowerCase() && 
+         m.artist.toLowerCase() === scMatchAny.artist.toLowerCase())
+      );
+      
+      if (existing) {
+        existing.sources = existing.sources || ['ACRCloud'];
+        if (!existing.sources.includes('SoundCloud')) {
+          existing.sources.push('SoundCloud');
+        }
+      } else {
+        allMatches.push({ ...scMatchAny, sources: ['SoundCloud'] });
       }
     }
     
