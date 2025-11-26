@@ -274,20 +274,47 @@ async function identifyWithSimplifiedACRCloud(
   console.log(`File size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
   console.log(`Deep Scan Mode: ${deepScan ? 'ENABLED (7 segments)' : 'DISABLED (3 segments)'}`);
   console.log(`Matching Mode: ${matchingMode.toUpperCase()} (${matchingMode === 'strict' ? '≥85%' : '≥40%'} confidence)`);
-  // Define segments based on scan mode
-  const segments = deepScan ? [
-    { offset: 0, name: 'START (0%)' },
-    { offset: Math.floor(fileSize * 0.2), name: 'EARLY (20%)' },
-    { offset: Math.floor(fileSize * 0.35), name: 'MID-EARLY (35%)' },
-    { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
-    { offset: Math.floor(fileSize * 0.65), name: 'MID-LATE (65%)' },
-    { offset: Math.floor(fileSize * 0.8), name: 'LATE (80%)' },
-    { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
-  ] : [
-    { offset: 0, name: 'START (0%)' },
-    { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
-    { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
-  ];
+  
+  // Try AI-powered segment optimization
+  let segments: Array<{ offset: number; name: string }>;
+  try {
+    console.log('\n🤖 Requesting AI-optimized segment positions...');
+    const analysisResponse = await supabaseClient.functions.invoke('analyze-audio-segments', {
+      body: { fileSize, fileName, deepScan }
+    });
+    
+    if (analysisResponse.data && !analysisResponse.error) {
+      const analysis = analysisResponse.data;
+      segments = analysis.recommendedSegments.map((seg: any) => ({
+        offset: seg.offset,
+        name: `${seg.percentage.toFixed(0)}% (${seg.priority.toUpperCase()}: ${seg.reason.substring(0, 30)}...)`
+      }));
+      
+      console.log(`✅ AI Analysis Complete:`);
+      console.log(`   Complexity: ${analysis.audioCharacteristics.complexity}`);
+      console.log(`   Distinctive patterns: ${analysis.audioCharacteristics.hasDistinctivePatterns ? 'Yes' : 'No'}`);
+      console.log(`   Using ${segments.length} AI-optimized segments\n`);
+    } else {
+      throw new Error('AI analysis returned no data');
+    }
+  } catch (aiError) {
+    console.log(`⚠️  AI analysis failed (${aiError instanceof Error ? aiError.message : 'unknown'}), using fallback segments`);
+    
+    // Fallback to traditional segments if AI fails
+    segments = deepScan ? [
+      { offset: 0, name: 'START (0%)' },
+      { offset: Math.floor(fileSize * 0.2), name: 'EARLY (20%)' },
+      { offset: Math.floor(fileSize * 0.35), name: 'MID-EARLY (35%)' },
+      { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
+      { offset: Math.floor(fileSize * 0.65), name: 'MID-LATE (65%)' },
+      { offset: Math.floor(fileSize * 0.8), name: 'LATE (80%)' },
+      { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
+    ] : [
+      { offset: 0, name: 'START (0%)' },
+      { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
+      { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
+    ];
+  }
   
   console.log(`Scanning ${segments.length} segments: ${segments.map(s => s.name).join(', ')}\n`);
   
