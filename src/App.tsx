@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { Navigation } from "@/components/Navigation";
+import { Footer } from "@/components/Footer";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -30,27 +31,30 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="min-h-screen w-full">
+          <div className="min-h-screen w-full flex flex-col">
             <Navigation />
             <RouteErrorBoundary>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/history" element={<History />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/payment-success" element={<PaymentSuccess />} />
-                <Route path="/notifications" element={<Notifications />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/feedback" element={<Feedback />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/privacy" element={<Privacy />} />
-                <Route path="/admin" element={<AdminAnalytics />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <main className="flex-1">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/history" element={<History />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/payment-success" element={<PaymentSuccess />} />
+                  <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/feedback" element={<Feedback />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/terms" element={<Terms />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/admin" element={<AdminAnalytics />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
             </RouteErrorBoundary>
+            <Footer />
           </div>
         </BrowserRouter>
       </TooltipProvider>
