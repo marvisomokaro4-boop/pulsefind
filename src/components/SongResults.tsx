@@ -25,6 +25,7 @@ interface Match {
   album?: string;
   confidence?: number;
   source: string;
+  sources?: string[]; // Multi-source tracking
   spotify_id?: string;
   spotify_url?: string;
   apple_music_id?: string;
@@ -377,7 +378,12 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                       : 'bg-background/80'
                   }`}
                 >
-                  {match.cached ? '⚡ Cached' : match.source}
+                  {match.cached 
+                    ? '⚡ Cached' 
+                    : match.sources && match.sources.length > 1 
+                      ? `${match.sources.join(' + ')}` 
+                      : match.source
+                  }
                 </Badge>
               </div>
               <div className="absolute top-4 left-4 flex flex-col gap-1.5">
@@ -426,6 +432,17 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                     🔥 {match.popularity}/100
                   </Badge>
                 )}
+                
+                {/* Multi-source badge */}
+                {match.sources && match.sources.length > 1 && (
+                  <Badge 
+                    variant="secondary" 
+                    className="backdrop-blur bg-purple-500/20 border-purple-500/30 text-purple-700 dark:text-purple-300 text-xs"
+                  >
+                    🔗 {match.sources.length} Sources
+                  </Badge>
+                )}
+                
                 <div className="flex gap-1">
                   {match.spotify_id && (
                     <Badge variant="secondary" className="bg-[#1DB954]/20 backdrop-blur border-[#1DB954]/30 text-xs">
