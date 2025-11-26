@@ -6,6 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to extract ID from user-provided URL
+function extractIdFromUrl(url: string, platform: string): string | null {
+  if (!url) return null;
+  
+  try {
+    switch (platform) {
+      case 'Spotify':
+        // Spotify: https://open.spotify.com/track/TRACK_ID
+        const spotifyMatch = url.match(/spotify\.com\/track\/([a-zA-Z0-9]+)/);
+        return spotifyMatch ? spotifyMatch[1] : null;
+        
+      case 'Apple Music':
+        // Apple Music: https://music.apple.com/us/album/ALBUM/TRACK_ID
+        const appleMatch = url.match(/music\.apple\.com\/[a-z]{2}\/(?:album|song)\/[^/]+\/(\d+)/);
+        return appleMatch ? appleMatch[1] : null;
+        
+      case 'YouTube':
+        // YouTube: https://www.youtube.com/watch?v=VIDEO_ID or youtu.be/VIDEO_ID
+        const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+        return youtubeMatch ? youtubeMatch[1] : null;
+        
+      default:
+        return null;
+    }
+  } catch (error) {
+    console.error('Error extracting ID from URL:', error);
+    return null;
+  }
+}
+
 // Helper function to search Apple Music using iTunes Search API
 async function searchAppleMusic(title: string, artist: string): Promise<string | null> {
   try {
@@ -69,8 +99,6 @@ serve(async (req) => {
     const { data: reports, error: reportsError } = await supabaseClient
       .from('missing_link_reports')
       .select('*')
-      .eq('reported_platform', 'Apple Music')
-      .is('apple_music_id', null)
       .gte('reported_at', sevenDaysAgo.toISOString())
       .limit(50); // Process 50 at a time
 
@@ -85,29 +113,61 @@ serve(async (req) => {
 
     // Re-check each report
     for (const report of reports || []) {
-      const appleMusicId = await searchAppleMusic(report.song_title, report.artist);
+      const platform = report.reported_platform;
+      let foundId: string | null = null;
       
-      if (appleMusicId) {
-        console.log(`Found Apple Music ID for "${report.song_title}": ${appleMusicId}`);
+      // First, try to extract ID from user-provided URL
+      if (report.user_provided_url) {
+        foundId = extractIdFromUrl(report.user_provided_url, platform);
+        if (foundId) {
+          console.log(`✓ Extracted ${platform} ID from user URL: ${foundId}`);
+        }
+      }
+      
+      // If no user URL, try API search (currently only for Apple Music)
+      if (!foundId && platform === 'Apple Music') {
+        foundId = await searchAppleMusic(report.song_title, report.artist);
+      }
+      
+      if (foundId) {
+        console.log(`Found ${platform} ID for "${report.song_title}": ${foundId}`);
+        
+        // Prepare updates based on platform
+        const reportUpdate: any = {};
+        const matchUpdate: any = {};
+        
+        switch (platform) {
+          case 'Spotify':
+            reportUpdate.spotify_id = foundId;
+            matchUpdate.spotify_id = foundId;
+            matchUpdate.spotify_url = `https://open.spotify.com/track/${foundId}`;
+            break;
+          case 'Apple Music':
+            reportUpdate.apple_music_id = foundId;
+            matchUpdate.apple_music_id = foundId;
+            matchUpdate.apple_music_url = `https://music.apple.com/us/song/${foundId}`;
+            break;
+          case 'YouTube':
+            reportUpdate.youtube_id = foundId;
+            matchUpdate.youtube_id = foundId;
+            matchUpdate.youtube_url = `https://www.youtube.com/watch?v=${foundId}`;
+            break;
+        }
         
         // Update the report
         updates.push(
           supabaseClient
             .from('missing_link_reports')
-            .update({ apple_music_id: appleMusicId })
+            .update(reportUpdate)
             .eq('id', report.id)
         );
         
         // If there's a beat_match_id, update that too
-        if (report.beat_match_id) {
-          const appleMusicUrl = `https://music.apple.com/us/song/${appleMusicId}`;
+        if (report.beat_match_id && Object.keys(matchUpdate).length > 0) {
           updates.push(
             supabaseClient
               .from('beat_matches')
-              .update({ 
-                apple_music_id: appleMusicId,
-                apple_music_url: appleMusicUrl 
-              })
+              .update(matchUpdate)
               .eq('id', report.beat_match_id)
           );
         }

@@ -345,6 +345,7 @@ export type Database = {
           song_title: string
           spotify_id: string | null
           user_id: string
+          user_provided_url: string | null
           youtube_id: string | null
         }
         Insert: {
@@ -358,6 +359,7 @@ export type Database = {
           song_title: string
           spotify_id?: string | null
           user_id: string
+          user_provided_url?: string | null
           youtube_id?: string | null
         }
         Update: {
@@ -371,6 +373,7 @@ export type Database = {
           song_title?: string
           spotify_id?: string | null
           user_id?: string
+          user_provided_url?: string | null
           youtube_id?: string | null
         }
         Relationships: [
