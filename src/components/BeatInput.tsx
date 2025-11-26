@@ -77,22 +77,44 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
 
   const processFile = async (file: File): Promise<BeatResult> => {
     try {
-      // Preprocess audio to standard format (16-bit PCM WAV, 44.1kHz)
+      // Preprocess audio to standard format (16-bit PCM WAV, 44.1kHz) with timeout
       console.log('[BEAT-INPUT] Preprocessing audio before upload...');
-      const { preprocessAudioFile } = await import('@/lib/audioPreprocessor');
-      const preprocessedBlob = await preprocessAudioFile(file);
+      
+      const preprocessingTimeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Audio preprocessing timeout - file may be too large or corrupted')), 30000); // 30s timeout
+      });
+      
+      const preprocessingPromise = (async () => {
+        const { preprocessAudioFile } = await import('@/lib/audioPreprocessor');
+        return await preprocessAudioFile(file);
+      })();
+      
+      const preprocessedBlob = await Promise.race([
+        preprocessingPromise,
+        preprocessingTimeout
+      ]).catch((error) => {
+        console.warn('[BEAT-INPUT] Preprocessing failed, using original file:', error);
+        toast({
+          title: "Preprocessing skipped",
+          description: "Using original audio format - this may reduce match accuracy",
+          variant: "default",
+        });
+        return file; // Fallback to original file
+      });
       
       // Create a new File object from the preprocessed blob
-      const preprocessedFile = new File(
-        [preprocessedBlob], 
-        file.name.replace(/\.\w+$/, '.wav'), 
-        { type: 'audio/wav' }
-      );
+      const preprocessedFile = preprocessedBlob instanceof File 
+        ? preprocessedBlob
+        : new File(
+            [preprocessedBlob], 
+            file.name.replace(/\.\w+$/, '.wav'), 
+            { type: 'audio/wav' }
+          );
       
       console.log('[BEAT-INPUT] Audio preprocessed:', {
         originalSize: file.size,
         preprocessedSize: preprocessedFile.size,
-        format: 'WAV 44.1kHz 16-bit mono'
+        format: preprocessedFile instanceof File && preprocessedFile.type === file.type ? 'original' : 'WAV 44.1kHz 16-bit mono'
       });
 
       // Create FormData to send the audio file
