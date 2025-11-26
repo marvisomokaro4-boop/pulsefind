@@ -32,13 +32,13 @@ export const LandingFeatures = () => {
       icon: Zap,
       title: "Batch Analysis",
       description: "Upload multiple beats at once and compare results side-by-side for efficient workflow.",
-      tier: "Elite"
+      tier: "Pro"
     },
     {
       icon: Bell,
       title: "Real-Time Notifications",
       description: "Get notified instantly when your beats are used in new songs across all platforms.",
-      tier: "Elite"
+      tier: "Pro"
     }
   ];
 
@@ -60,8 +60,7 @@ export const LandingFeatures = () => {
                   <feature.icon className="w-6 h-6 text-primary" />
                 </div>
                 <Badge 
-                  variant={feature.tier === "Free" ? "secondary" : feature.tier === "Pro" ? "default" : "outline"}
-                  className={feature.tier === "Elite" ? "border-primary text-primary" : ""}
+                  variant={feature.tier === "Free" ? "secondary" : "default"}
                 >
                   {feature.tier}
                 </Badge>

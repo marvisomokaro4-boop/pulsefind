@@ -78,9 +78,9 @@ const Profile = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               Subscription
-              <Badge variant={plan === "Elite" ? "default" : plan === "Pro" ? "secondary" : "outline"}>
-                {plan}
-              </Badge>
+          <Badge variant={plan === "Free" ? "default" : "secondary"}>
+            {plan}
+          </Badge>
             </CardTitle>
             <CardDescription>Your current plan and usage</CardDescription>
           </CardHeader>
@@ -88,9 +88,9 @@ const Profile = () => {
             <div className="flex items-center gap-3">
               <CreditCard className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm text-muted-foreground">Daily Scan Limit</p>
+                <p className="text-sm text-muted-foreground">Monthly Upload Limit</p>
                 <p className="font-medium">
-                  {scansPerDay === -1 ? "Unlimited" : `${scansPerDay} scans per day`}
+                  {scansPerDay === -1 ? "Unlimited" : `${scansPerDay} upload per month`}
                 </p>
               </div>
             </div>

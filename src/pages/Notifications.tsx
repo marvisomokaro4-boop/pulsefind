@@ -34,7 +34,7 @@ const Notifications = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (plan !== 'Elite') {
+    if (plan !== 'Pro') {
       navigate('/pricing');
       return;
     }

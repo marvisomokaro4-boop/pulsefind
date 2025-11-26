@@ -49,7 +49,6 @@ export const Navigation = () => {
   const navItems = [
     { to: "/", label: "Beat Finder", icon: Music, show: true },
     { to: "/history", label: "History", icon: History, show: !!user },
-    { to: "/notifications", label: "Notifications", icon: Bell, show: !!user && plan === "Elite" },
     { to: "/pricing", label: "Pricing", icon: CreditCard, show: true },
     { to: "/about", label: "About", icon: Info, show: true },
     { to: "/feedback", label: "Feedback", icon: MessageSquare, show: true },

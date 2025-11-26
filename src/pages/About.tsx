@@ -25,19 +25,19 @@ const About = () => {
     },
     {
       question: "Can I upload multiple beats at once?",
-      answer: "Yes! Pro and Elite tier subscribers have access to batch upload functionality, allowing you to analyze multiple beats simultaneously and compare results side-by-side."
+      answer: "Yes! Pro tier subscribers have access to batch upload functionality, allowing you to analyze multiple beats simultaneously and compare results side-by-side."
     },
     {
       question: "What's included in the free tier?",
-      answer: "Free tier users get 3 scans per day with basic match results including song title, artist, and confidence scores. You can view up to 5 matches per beat analysis."
+      answer: "Free tier users get 1 beat upload per month with basic scan analysis and partial results. Upgrade to Pro for unlimited uploads and full feature access."
     },
     {
-      question: "How do I upgrade to Pro or Elite?",
-      answer: "Visit our Pricing page to view all available plans. Pro tier offers unlimited scans and full feature access, while Elite tier adds real-time notifications when your beats are used in new songs."
+      question: "How do I upgrade to Pro?",
+      answer: "Visit our Pricing page to view our subscription plans. Pro tier offers unlimited uploads & scans, full deep scan analysis, auto alerts, full results, and downloadable match reports for $10/month."
     },
     {
       question: "What happens to the first 50 signups?",
-      answer: "The first 50 users to sign up receive Elite tier access completely free for 3 months! This includes unlimited scans, batch uploads, notifications, and priority support."
+      answer: "The first 50 users to sign up receive Pro tier access completely free for 3 months! This includes unlimited uploads & scans, full deep scan, auto alerts, downloadable reports, and full scan history."
     },
     {
       question: "Can I report missing links or incorrect matches?",
@@ -189,7 +189,7 @@ const About = () => {
           </CardHeader>
           <CardContent>
             <p className="text-foreground mb-4">
-              <strong>First 50 signups get Elite tier FREE for 3 months!</strong> Get unlimited scans, beat usage notifications, and priority support.
+              <strong>First 50 signups get Pro tier FREE for 3 months!</strong> Get unlimited uploads & scans, full deep scan, auto alerts, downloadable reports, and full scan history.
             </p>
             <Button 
               onClick={() => window.location.href = '/auth'}
