@@ -46,9 +46,10 @@ interface BeatInputProps {
   onBatchResults?: (results: BeatResult[]) => void;
   checkUploadLimit?: () => boolean;
   debugMode?: boolean;
+  disableDeduplication?: boolean;
 }
 
-const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode = false }: BeatInputProps) => {
+const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode = false, disableDeduplication = false }: BeatInputProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [isComplete, setIsComplete] = useState(false);
@@ -74,6 +75,11 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
       // Add year filter if specified
       if (!searchAllTime && beatYear) {
         formData.append('beatYear', beatYear);
+      }
+      
+      // Add debug mode flag
+      if (disableDeduplication) {
+        formData.append('disableDeduplication', 'true');
       }
 
       // Call the identify-beat edge function

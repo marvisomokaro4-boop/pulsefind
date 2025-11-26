@@ -685,7 +685,8 @@ function areSimilarTracks(track1: any, track2: any): boolean {
 // Multiple query strategies for better accuracy
 async function tryMultipleQueryStrategies(
   arrayBuffer: ArrayBuffer, 
-  fileName: string
+  fileName: string,
+  disableDeduplication: boolean = false
 ): Promise<any[]> {
   console.log('Attempting multiple query strategies...');
   const allResults: any[] = [];
@@ -694,7 +695,7 @@ async function tryMultipleQueryStrategies(
   // Strategy 1: Full audio with multi-segment analysis
   console.log('Strategy 1: Full audio multi-segment analysis');
   try {
-    const fullResults = await identifyWithACRCloudMultiSegment(arrayBuffer, fileName);
+    const fullResults = await identifyWithACRCloudMultiSegment(arrayBuffer, fileName, disableDeduplication);
     allResults.push(...fullResults);
     console.log(`Strategy 1 found ${fullResults.length} results`);
     
@@ -795,7 +796,7 @@ async function tryMultipleQueryStrategies(
   return allResults;
 }
 
-async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileName: string): Promise<any[]> {
+async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileName: string, disableDeduplication: boolean = false): Promise<any[]> {
   const acrcloudAccessKey = Deno.env.get('ACRCLOUD_ACCESS_KEY');
   const acrcloudAccessSecret = Deno.env.get('ACRCLOUD_ACCESS_SECRET');
 
@@ -964,51 +965,60 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
 
     console.log(`Total tracks found across all segments: ${allTracks.length}`);
 
-    // Enhanced deduplication: Group by ISRC first, then by title+artist
-    const uniqueTracks: any[] = [];
-    const seenISRCs = new Set<string>();
-    const seenTitleArtist = new Set<string>();
+    // Enhanced deduplication (can be disabled in debug mode)
+    let uniqueTracks: any[];
     
-    for (const track of allTracks) {
-      // Deduplication by ISRC (most reliable)
-      if (track.isrc) {
-        if (seenISRCs.has(track.isrc)) {
-          // Find existing and merge if new one has better score
-          const existingIdx = uniqueTracks.findIndex(t => t.isrc === track.isrc);
-          if (existingIdx >= 0 && track.confidence > uniqueTracks[existingIdx].confidence) {
-            uniqueTracks[existingIdx] = {
+    if (disableDeduplication) {
+      console.log('⚠️  DEBUG MODE: Deduplication DISABLED - showing all raw results');
+      uniqueTracks = allTracks;
+    } else {
+      const deduplicatedTracks: any[] = [];
+      const seenISRCs = new Set<string>();
+      const seenTitleArtist = new Set<string>();
+      
+      for (const track of allTracks) {
+        // Deduplication by ISRC (most reliable)
+        if (track.isrc) {
+          if (seenISRCs.has(track.isrc)) {
+            // Find existing and merge if new one has better score
+            const existingIdx = deduplicatedTracks.findIndex(t => t.isrc === track.isrc);
+            if (existingIdx >= 0 && track.confidence > deduplicatedTracks[existingIdx].confidence) {
+              deduplicatedTracks[existingIdx] = {
+                ...track,
+                spotify_id: track.spotify_id || deduplicatedTracks[existingIdx].spotify_id,
+                apple_music_id: track.apple_music_id || deduplicatedTracks[existingIdx].apple_music_id,
+                youtube_id: track.youtube_id || deduplicatedTracks[existingIdx].youtube_id,
+              };
+            }
+            continue;
+          }
+          seenISRCs.add(track.isrc);
+        }
+        
+        // Fallback: Deduplication by title + artist
+        const titleArtistKey = `${normalizeForMatching(track.title)}_${normalizeForMatching(track.artist)}`;
+        if (seenTitleArtist.has(titleArtistKey)) {
+          const existingIdx = deduplicatedTracks.findIndex(t => 
+            areSimilarTracks(t, track)
+          );
+          
+          if (existingIdx >= 0 && track.confidence > deduplicatedTracks[existingIdx].confidence) {
+            deduplicatedTracks[existingIdx] = {
               ...track,
-              spotify_id: track.spotify_id || uniqueTracks[existingIdx].spotify_id,
-              apple_music_id: track.apple_music_id || uniqueTracks[existingIdx].apple_music_id,
-              youtube_id: track.youtube_id || uniqueTracks[existingIdx].youtube_id,
+              spotify_id: track.spotify_id || deduplicatedTracks[existingIdx].spotify_id,
+              apple_music_id: track.apple_music_id || deduplicatedTracks[existingIdx].apple_music_id,
+              youtube_id: track.youtube_id || deduplicatedTracks[existingIdx].youtube_id,
+              isrc: track.isrc || deduplicatedTracks[existingIdx].isrc, // Preserve ISRC
             };
           }
           continue;
         }
-        seenISRCs.add(track.isrc);
-      }
-      
-      // Fallback: Deduplication by title + artist
-      const titleArtistKey = `${normalizeForMatching(track.title)}_${normalizeForMatching(track.artist)}`;
-      if (seenTitleArtist.has(titleArtistKey)) {
-        const existingIdx = uniqueTracks.findIndex(t => 
-          areSimilarTracks(t, track)
-        );
+        seenTitleArtist.add(titleArtistKey);
         
-        if (existingIdx >= 0 && track.confidence > uniqueTracks[existingIdx].confidence) {
-          uniqueTracks[existingIdx] = {
-            ...track,
-            spotify_id: track.spotify_id || uniqueTracks[existingIdx].spotify_id,
-            apple_music_id: track.apple_music_id || uniqueTracks[existingIdx].apple_music_id,
-            youtube_id: track.youtube_id || uniqueTracks[existingIdx].youtube_id,
-            isrc: track.isrc || uniqueTracks[existingIdx].isrc, // Preserve ISRC
-          };
-        }
-        continue;
+        deduplicatedTracks.push(track);
       }
-      seenTitleArtist.add(titleArtistKey);
       
-      uniqueTracks.push(track);
+      uniqueTracks = deduplicatedTracks;
     }
 
     console.log(`After deduplication: ${uniqueTracks.length} unique tracks`);
@@ -1175,6 +1185,7 @@ serve(async (req) => {
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
     const beatYear = formData.get('beatYear') as string | null;
+    const disableDeduplication = formData.get('disableDeduplication') === 'true';
 
     if (!audioFile) {
       return new Response(
@@ -1199,7 +1210,7 @@ serve(async (req) => {
     metrics.totalScans++;
 
     // Use multiple query strategies for maximum accuracy
-    const acrcloudResults = await tryMultipleQueryStrategies(arrayBuffer, audioFile.name);
+    const acrcloudResults = await tryMultipleQueryStrategies(arrayBuffer, audioFile.name, disableDeduplication);
     
     // Shazam is not available, skip it
     const shazamResults: any[] = [];
