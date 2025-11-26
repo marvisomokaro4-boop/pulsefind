@@ -48,13 +48,13 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // First check database for any active subscription (including manually assigned)
+    // First check database for any active subscription (including manually assigned and forever access)
     const { data: dbSubscription } = await supabaseClient
       .from("user_subscriptions")
       .select("*, subscription_plans(*)")
       .eq("user_id", user.id)
       .eq("status", "active")
-      .gt("current_period_end", new Date().toISOString())
+      .or(`current_period_end.is.null,current_period_end.gt.${new Date().toISOString()}`)
       .single();
 
     if (dbSubscription) {
