@@ -143,9 +143,9 @@ const SongResults = ({ matches }: SongResultsProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold mb-2">Songs Using Your Beat</h2>
-        <p className="text-muted-foreground">
+      <div className="text-center px-4">
+        <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your Beat</h2>
+        <p className="text-sm sm:text-base text-muted-foreground">
           Found {highConfidenceMatches.length} high-confidence match{highConfidenceMatches.length !== 1 ? 'es' : ''}
         </p>
       </div>
@@ -156,7 +156,7 @@ const SongResults = ({ matches }: SongResultsProps) => {
         lowConfidenceCount={lowConfidenceMatches.length}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {displayedMatches.map((match, index) => (
           <Card
             key={`${match.title}-${match.artist}-${index}`}

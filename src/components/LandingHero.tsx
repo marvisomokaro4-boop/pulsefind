@@ -10,38 +10,39 @@ export const LandingHero = () => {
   return (
     <section className="relative overflow-hidden border-b border-border">
       <div className="absolute inset-0 bg-gradient-primary opacity-10" />
-      <div className="container mx-auto px-4 py-20 relative">
+      <div className="container mx-auto px-4 py-12 sm:py-20 relative">
         <div className="text-center max-w-4xl mx-auto">
           {/* Launch Offer Badge */}
-          <div className="flex justify-center mb-6">
-            <Badge className="px-4 py-2 text-sm bg-primary/20 text-primary border-primary/30 animate-pulse">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Launch Offer: First 100 Users Get Pro Free for 3 Months!
+          <div className="flex justify-center mb-4 sm:mb-6">
+            <Badge className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-primary/20 text-primary border-primary/30 animate-pulse">
+              <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Launch Offer: First 100 Users Get Pro Free for 3 Months!</span>
+              <span className="sm:hidden">Launch Offer: 3 Months Free!</span>
             </Badge>
           </div>
 
-          <div className="flex justify-center mb-8">
+          <div className="flex justify-center mb-6 sm:mb-8">
             <PulseFindLogo size="xl" showText={false} />
           </div>
 
-          <h1 className="text-6xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-primary bg-clip-text text-transparent">
             PulseFind
           </h1>
           
-          <p className="text-2xl text-foreground mb-4 font-semibold">
+          <p className="text-lg sm:text-xl md:text-2xl text-foreground mb-3 sm:mb-4 font-semibold px-4">
             Discover Who's Using Your Beats
           </p>
           
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-6 sm:mb-8 px-4">
             Upload your producer beat and find all the songs using it across Spotify, Apple Music, and more. 
             Like Shazam, but built specifically for producers to track their beats.
           </p>
 
-          <div className="flex gap-4 justify-center flex-wrap">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
             <Button 
               size="lg" 
               onClick={() => navigate("/auth")}
-              className="text-lg px-8"
+              className="text-base sm:text-lg px-6 sm:px-8 w-full sm:w-auto"
             >
               Get Started Free
             </Button>
@@ -49,13 +50,13 @@ export const LandingHero = () => {
               size="lg" 
               variant="outline"
               onClick={() => navigate("/pricing")}
-              className="text-lg px-8"
+              className="text-base sm:text-lg px-6 sm:px-8 w-full sm:w-auto"
             >
               View Pricing
             </Button>
           </div>
 
-          <p className="text-sm text-muted-foreground mt-4">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-3 sm:mt-4 px-4">
             No credit card required • 3 free scans daily
           </p>
         </div>

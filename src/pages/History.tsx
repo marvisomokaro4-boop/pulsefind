@@ -95,13 +95,13 @@ const History = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex items-center gap-3 sm:gap-4">
           <Button variant="ghost" onClick={() => navigate("/")} size="icon">
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
-          <h1 className="text-3xl font-bold">Beat History</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Beat History</h1>
         </div>
 
         {/* Beat Leaderboard */}
@@ -145,7 +145,7 @@ const History = () => {
                     {beat.matches.map((match, index) => (
                       <div
                         key={index}
-                        className="flex items-center justify-between p-3 rounded-lg bg-background/50"
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg bg-background/50 gap-3"
                       >
                         <div>
                           <p className="font-medium">{match.song_title}</p>
@@ -183,7 +183,7 @@ const History = () => {
                             )}
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           {match.spotify_url && (
                             <Button
                               size="sm"
@@ -191,8 +191,9 @@ const History = () => {
                               onClick={() =>
                                 window.open(match.spotify_url, "_blank")
                               }
+                              className="text-xs"
                             >
-                              <ExternalLink className="w-4 h-4 mr-1" />
+                              <ExternalLink className="w-3 h-3 mr-1" />
                               Spotify
                             </Button>
                           )}
@@ -203,8 +204,9 @@ const History = () => {
                               onClick={() =>
                                 window.open(match.apple_music_url, "_blank")
                               }
+                              className="text-xs"
                             >
-                              <ExternalLink className="w-4 h-4 mr-1" />
+                              <ExternalLink className="w-3 h-3 mr-1" />
                               Apple
                             </Button>
                           )}
@@ -215,8 +217,9 @@ const History = () => {
                               onClick={() =>
                                 window.open(match.youtube_url, "_blank")
                               }
+                              className="text-xs"
                             >
-                              <ExternalLink className="w-4 h-4 mr-1" />
+                              <ExternalLink className="w-3 h-3 mr-1" />
                               YouTube
                             </Button>
                           )}
