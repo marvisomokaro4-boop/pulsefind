@@ -351,92 +351,35 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
   };
 
   return (
-    <Card className="max-w-2xl mx-auto p-4 sm:p-6 md:p-8 bg-card/50 backdrop-blur border-primary/20">
-      <div className="text-center space-y-4 sm:space-y-6">
+    <Card className="max-w-xl mx-auto p-6 sm:p-8 bg-card/50 backdrop-blur border-primary/20">
+      <div className="text-center space-y-6">
         <div className="flex justify-center">
-          <div className="p-3 sm:p-4 rounded-full bg-primary/10">
-            <Music className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
+          <div className="p-4 rounded-full bg-primary/10">
+            <Music className="w-12 h-12 text-primary" />
           </div>
         </div>
 
-        {/* Search Mode Tabs */}
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+            Find Your Beat
+          </h2>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Upload your beat or producer tag to discover which songs are using it across streaming platforms
+          </p>
+        </div>
+
+        {/* Simplified Search Mode Tabs */}
         <Tabs value={searchMode} onValueChange={(value) => {
           const newMode = value as "beat" | "producer-tag";
           setSearchMode(newMode);
           onSearchModeChange?.(newMode);
-        }} className="w-full max-w-md mx-auto">
+        }} className="w-full max-w-sm mx-auto">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="beat">Beat Search</TabsTrigger>
-            <TabsTrigger value="producer-tag">Producer Tag Search</TabsTrigger>
+            <TabsTrigger value="beat">Beat</TabsTrigger>
+            <TabsTrigger value="producer-tag">Tag</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className="px-4">
-          <h2 className="text-xl sm:text-2xl font-bold mb-2">
-            {searchMode === "beat" ? "Upload Your Beat" : "Upload Your Producer Tag"}
-          </h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {searchMode === "beat" 
-              ? "Upload your full producer beat to find which songs are using it"
-              : "Upload your producer tag audio (like \"Metro Boomin want some more\") to find all songs containing it"
-            }
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            We'll automatically analyze your audio • Max 50MB
-          </p>
-        </div>
-
-        {/* Year Filter Section */}
-        <div className="space-y-4 max-w-md mx-auto">
-          <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
-            <Label htmlFor="searchAllTime" className="text-sm font-medium cursor-pointer flex-1">
-              Search all time (no year filter)
-            </Label>
-            <Switch
-              id="searchAllTime"
-              checked={searchAllTime}
-              onCheckedChange={setSearchAllTime}
-            />
-          </div>
-
-          {!searchAllTime && (
-            <div className="space-y-2">
-              <Label htmlFor="beatYear" className="text-sm font-medium">
-                Year beat was made (optional)
-              </Label>
-              <input
-                id="beatYear"
-                type="number"
-                min="1900"
-                max={new Date().getFullYear()}
-                value={beatYear}
-                onChange={(e) => setBeatYear(e.target.value)}
-                placeholder={`e.g., ${new Date().getFullYear()}`}
-                className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-              <p className="text-xs text-muted-foreground">
-                We'll only show songs released after this year
-              </p>
-            </div>
-          )}
-          
-          {/* Deep Scan Toggle */}
-          <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
-            <div className="flex-1">
-              <Label htmlFor="deepScan" className="text-sm font-medium cursor-pointer block">
-                Deep Scan Mode
-              </Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                Scans 7 segments instead of 3 for more thorough analysis (slower)
-              </p>
-            </div>
-            <Switch
-              id="deepScan"
-              checked={deepScanEnabled}
-              onCheckedChange={setDeepScanEnabled}
-            />
-          </div>
-        </div>
 
         <input
           ref={fileInputRef}
@@ -448,19 +391,14 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
         />
 
         {!isAnalyzing && !isComplete && (
-          <div className="space-y-2">
-            <Button
-              onClick={handleUploadClick}
-              size="lg"
-              className="w-full max-w-sm group"
-            >
-              <Upload className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-              {searchMode === "beat" ? "Choose Audio File(s)" : "Choose Producer Tag(s)"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Select multiple files for batch analysis
-            </p>
-          </div>
+          <Button
+            onClick={handleUploadClick}
+            size="lg"
+            className="w-full max-w-sm group py-6"
+          >
+            <Upload className="w-6 h-6 mr-2 group-hover:scale-110 transition-transform" />
+            Upload Audio
+          </Button>
         )}
 
         {isAnalyzing && (
@@ -481,20 +419,18 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
         )}
 
         {isComplete && !isAnalyzing && (
-          <div className="py-8 space-y-4">
+          <div className="py-6 space-y-4">
             <div className="flex items-center justify-center gap-2">
               <Check className="w-8 h-8 text-primary" />
-              <p className="text-xl font-bold">Search Complete</p>
+              <p className="text-xl font-bold">Complete!</p>
             </div>
-            {fileName && (
-              <p className="text-sm text-muted-foreground">{fileName}</p>
-            )}
             <Button
               onClick={handleUploadClick}
               variant="outline"
+              size="lg"
               className="mt-4"
             >
-              {searchMode === "beat" ? "Search Another Beat" : "Search Another Tag"}
+              Upload Another
             </Button>
           </div>
         )}
