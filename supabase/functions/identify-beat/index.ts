@@ -682,118 +682,22 @@ function areSimilarTracks(track1: any, track2: any): boolean {
   return titleSimilar && artistSimilar;
 }
 
-// Multiple query strategies for better accuracy
+// Simplified scanning strategy - just full audio scan
 async function tryMultipleQueryStrategies(
   arrayBuffer: ArrayBuffer, 
   fileName: string,
   disableDeduplication: boolean = false
 ): Promise<any[]> {
-  console.log('Attempting multiple query strategies...');
-  const allResults: any[] = [];
-  const fileSize = arrayBuffer.byteLength;
+  console.log('Starting full audio scan...');
   
-  // Strategy 1: Full audio with multi-segment analysis
-  console.log('Strategy 1: Full audio multi-segment analysis');
   try {
-    const fullResults = await identifyWithACRCloudMultiSegment(arrayBuffer, fileName, disableDeduplication);
-    allResults.push(...fullResults);
-    console.log(`Strategy 1 found ${fullResults.length} results`);
-    
-    // If we got sufficient results from full audio scan, return early
-    if (fullResults.length >= 3) {
-      console.log('Full audio scan found sufficient results, skipping alternate segments');
-      return allResults;
-    }
+    const results = await identifyWithACRCloudMultiSegment(arrayBuffer, fileName, disableDeduplication);
+    console.log(`Scan complete, found ${results.length} results`);
+    return results;
   } catch (error) {
-    console.error('Strategy 1 failed:', error);
+    console.error('Scan failed:', error);
+    return [];
   }
-  
-  // Only try alternate segments if full audio scan found few/no results
-  console.log('Full audio scan found few results, trying alternate segments...');
-  
-  // Strategy 2: 10-second centered segment
-  console.log('Strategy 2: 10-second centered segment');
-  try {
-    const centerOffset = Math.floor(fileSize / 2);
-    const tenSecondsBytes = Math.min(176400, fileSize); // ~10 seconds at 44.1kHz 16-bit stereo
-    const segmentStart = Math.max(0, centerOffset - Math.floor(tenSecondsBytes / 2));
-    
-    metrics.retryAttempts++;
-    const centerResults = await identifySegmentWithACRCloud(
-      arrayBuffer,
-      fileName,
-      segmentStart,
-      'center-10s',
-      'high'
-    );
-    allResults.push(...centerResults);
-    console.log(`Strategy 2 found ${centerResults.length} results`);
-  } catch (error) {
-    console.error('Strategy 2 failed:', error);
-  }
-  
-  // Strategy 3: 15-second random segment
-  console.log('Strategy 3: 15-second random segment');
-  try {
-    const fifteenSecondsBytes = Math.min(264600, fileSize); // ~15 seconds
-    const maxStart = fileSize - fifteenSecondsBytes;
-    const randomStart = Math.floor(Math.random() * maxStart);
-    
-    metrics.retryAttempts++;
-    const randomResults = await identifySegmentWithACRCloud(
-      arrayBuffer,
-      fileName,
-      randomStart,
-      'random-15s',
-      'normal'
-    );
-    allResults.push(...randomResults);
-    console.log(`Strategy 3 found ${randomResults.length} results`);
-  } catch (error) {
-    console.error('Strategy 3 failed:', error);
-  }
-  
-  // Strategy 4: First 20 seconds
-  console.log('Strategy 4: First 20 seconds');
-  try {
-    const twentySecondsBytes = Math.min(352800, fileSize); // ~20 seconds
-    
-    metrics.retryAttempts++;
-    const firstResults = await identifySegmentWithACRCloud(
-      arrayBuffer,
-      fileName,
-      0,
-      'first-20s',
-      'high'
-    );
-    allResults.push(...firstResults);
-    console.log(`Strategy 4 found ${firstResults.length} results`);
-  } catch (error) {
-    console.error('Strategy 4 failed:', error);
-  }
-  
-  // Strategy 5: Last 20 seconds
-  console.log('Strategy 5: Last 20 seconds');
-  try {
-    const twentySecondsBytes = Math.min(352800, fileSize); // ~20 seconds
-    const lastSegmentStart = Math.max(0, fileSize - twentySecondsBytes);
-    
-    metrics.retryAttempts++;
-    const lastResults = await identifySegmentWithACRCloud(
-      arrayBuffer,
-      fileName,
-      lastSegmentStart,
-      'last-20s',
-      'high'
-    );
-    allResults.push(...lastResults);
-    console.log(`Strategy 5 found ${lastResults.length} results`);
-  } catch (error) {
-    console.error('Strategy 5 failed:', error);
-  }
-  
-  console.log(`All strategies completed, total results: ${allResults.length}`);
-  return allResults;
 }
 
 async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileName: string, disableDeduplication: boolean = false): Promise<any[]> {
@@ -807,160 +711,44 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
 
   try {
     const fileSize = arrayBuffer.byteLength;
-    const segmentSize = 400 * 1024; // 400KB per segment for more granular analysis
-    const overlapSize = 300 * 1024; // 300KB overlap (75% overlap for maximum coverage)
+    const segmentSize = 512 * 1024; // 512KB segments (increased from 400KB)
+    const overlapSize = 256 * 1024; // 256KB overlap (50% overlap - reduced from 75%)
     
-    console.log(`Analyzing entire beat: ${fileSize} bytes with enhanced multi-segment analysis`);
+    console.log(`Analyzing beat: ${fileSize} bytes with optimized segment scanning`);
     
-    // Calculate all segment positions with quality analysis
-    const segmentPositions: Array<{ 
-      offset: number; 
-      priority: 'high' | 'normal'; 
-      quality?: AudioQualityScore;
-      skip?: boolean;
-    }> = [];
+    // Simplified approach: scan all segments without complex quality pre-analysis
+    const segmentPositions: Array<{ offset: number; index: number }> = [];
     let offset = 0;
     let segmentIndex = 0;
-    let qualityAnalysisFailed = false;
     
-    console.log('Starting audio quality pre-analysis...');
-    
-    try {
-      while (offset < fileSize) {
-        const remainingBytes = fileSize - offset;
-        const percentage = (offset / fileSize) * 100;
-        const currentSegmentSize = Math.min(segmentSize, remainingBytes);
-        
-        // Analyze audio quality for this segment with error recovery
-        let quality: AudioQualityScore;
-        try {
-          quality = analyzeAudioQuality(arrayBuffer, offset, currentSegmentSize);
-        } catch (analysisError) {
-          console.warn(`Quality analysis failed for segment ${segmentIndex + 1}, using neutral quality:`, analysisError);
-          qualityAnalysisFailed = true;
-          // Fallback to neutral quality that allows processing
-          quality = {
-            score: 50,
-            rms: 0,
-            peakLevel: 0,
-            zeroCrossingRate: 0,
-            energyVariance: 0,
-            isSilent: false,
-            isUsable: true
-          };
-        }
-        
-        // Strategic positions: beginning (0-10%), middle (45-55%), end (90-100%)
-        const isStrategic = percentage < 10 || (percentage > 45 && percentage < 55) || percentage > 90;
-        
-        // Decide if we should skip this segment based on quality
-        const shouldSkip = !quality.isUsable && !isStrategic && !qualityAnalysisFailed; // Don't skip if analysis failed
-        
-        if (shouldSkip) {
-          console.log(`Skipping segment ${segmentIndex + 1} at ${Math.round(percentage)}% (quality score: ${quality.score}, silent: ${quality.isSilent})`);
-        }
-        
-        segmentPositions.push({
-          offset,
-          priority: isStrategic ? 'high' : 'normal',
-          quality,
-          skip: shouldSkip
-        });
-        
-        segmentIndex++;
-        offset += segmentSize - overlapSize;
-        
-        if (remainingBytes <= segmentSize) break;
-      }
-      
-      // Filter out skipped segments
-      const usableSegments = segmentPositions.filter(s => !s.skip);
-      const skippedCount = segmentPositions.length - usableSegments.length;
-      
-      if (qualityAnalysisFailed) {
-        console.log(`Quality analysis encountered errors - processing all ${usableSegments.length} segments without quality filtering`);
-      } else {
-        console.log(`Quality analysis complete: ${usableSegments.length} usable segments (skipped ${skippedCount} poor quality segments)`);
-        console.log(`High priority segments: ${usableSegments.filter(s => s.priority === 'high').length}`);
-      }
-    } catch (preAnalysisError) {
-      // Critical fallback: if entire quality analysis fails, generate basic segments
-      console.error('Quality pre-analysis completely failed, falling back to basic segment scanning:', preAnalysisError);
-      qualityAnalysisFailed = true;
-      
-      segmentPositions.length = 0; // Clear any partial segments
-      offset = 0;
-      segmentIndex = 0;
-      
-      while (offset < fileSize) {
-        const remainingBytes = fileSize - offset;
-        const percentage = (offset / fileSize) * 100;
-        const isStrategic = percentage < 10 || (percentage > 45 && percentage < 55) || percentage > 90;
-        
-        segmentPositions.push({
-          offset,
-          priority: isStrategic ? 'high' : 'normal',
-          quality: undefined,
-          skip: false // Never skip in fallback mode
-        });
-        
-        segmentIndex++;
-        offset += segmentSize - overlapSize;
-        if (remainingBytes <= segmentSize) break;
-      }
-      
-      console.log(`Fallback mode: processing all ${segmentPositions.length} segments without quality analysis`);
+    while (offset < fileSize) {
+      segmentPositions.push({ offset, index: segmentIndex });
+      segmentIndex++;
+      offset += segmentSize - overlapSize;
+      if (offset >= fileSize) break;
     }
     
-    const usableSegments = segmentPositions.filter(s => !s.skip);
+    console.log(`Generated ${segmentPositions.length} segments for scanning`);
     
-    // Process high priority segments first (sorted by quality)
-    const highPrioritySegments = usableSegments
-      .filter(s => s.priority === 'high')
-      .sort((a, b) => (b.quality?.score || 0) - (a.quality?.score || 0));
-      
-    const normalPrioritySegments = usableSegments
-      .filter(s => s.priority === 'normal')
-      .sort((a, b) => (b.quality?.score || 0) - (a.quality?.score || 0));
-    
-    // Process in batches to manage memory - increased for faster processing
-    const batchSize = 8;
+    // Process in batches for speed
+    const batchSize = 10; // Increased batch size
     const allTracks: any[] = [];
     
-    // Process high priority first
-    for (let i = 0; i < highPrioritySegments.length; i += batchSize) {
-      const batch = highPrioritySegments.slice(i, i + batchSize);
-      const batchPromises = batch.map((seg, idx) => {
-        const qualityInfo = seg.quality ? ` Q:${seg.quality.score}` : '';
+    for (let i = 0; i < segmentPositions.length; i += batchSize) {
+      const batch = segmentPositions.slice(i, i + batchSize);
+      const batchPromises = batch.map(seg => {
+        const percentage = Math.round((seg.offset / fileSize) * 100);
         return identifySegmentWithACRCloud(
           arrayBuffer,
           fileName,
           seg.offset,
-          `segment ${i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%${qualityInfo})`,
-          'high'
-        );
-      });
-      const results = await Promise.all(batchPromises);
-      allTracks.push(...results.flat());
-      console.log(`Processed high priority batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(highPrioritySegments.length / batchSize)}`);
-    }
-    
-    // Then process normal priority
-    for (let i = 0; i < normalPrioritySegments.length; i += batchSize) {
-      const batch = normalPrioritySegments.slice(i, i + batchSize);
-      const batchPromises = batch.map((seg, idx) => {
-        const qualityInfo = seg.quality ? ` Q:${seg.quality.score}` : '';
-        return identifySegmentWithACRCloud(
-          arrayBuffer,
-          fileName,
-          seg.offset,
-          `segment ${highPrioritySegments.length + i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%${qualityInfo})`,
+          `segment ${seg.index + 1} (${percentage}%)`,
           'normal'
         );
       });
       const results = await Promise.all(batchPromises);
       allTracks.push(...results.flat());
-      console.log(`Processed normal priority batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(normalPrioritySegments.length / batchSize)}`);
+      console.log(`Processed batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(segmentPositions.length / batchSize)}`);
     }
 
     console.log(`Total tracks found across all segments: ${allTracks.length}`);
