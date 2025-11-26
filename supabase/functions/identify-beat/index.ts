@@ -452,52 +452,6 @@ function normalizeAudioBuffer(buffer: ArrayBuffer): ArrayBuffer {
 }
 
 
-// AudD integration for additional validation
-async function identifyWithAudD(arrayBuffer: ArrayBuffer): Promise<any[]> {
-  const auddApiKey = Deno.env.get('AUDD_API_KEY');
-
-  if (!auddApiKey) {
-    console.log('AudD API key not configured');
-    return [];
-  }
-
-  try {
-    // AudD requires base64 encoded audio
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer.slice(0, 500 * 1024))));
-    
-    const formData = new FormData();
-    formData.append('api_token', auddApiKey);
-    formData.append('audio', base64Audio);
-    formData.append('return', 'spotify,apple_music');
-
-    const response = await fetch('https://api.audd.io/', {
-      method: 'POST',
-      body: formData,
-    });
-
-    const data = await response.json();
-    console.log('AudD response:', JSON.stringify(data));
-
-    if (data.status === 'success' && data.result) {
-      const result = data.result;
-      return [{
-        title: result.title,
-        artist: result.artist,
-        album: result.album,
-        confidence: 80, // AudD doesn't provide confidence, set default
-        source: 'AudD',
-        spotify_id: result.spotify?.id,
-        apple_music_id: result.apple_music?.id,
-        release_date: result.release_date,
-      }];
-    }
-
-    return [];
-  } catch (error) {
-    console.error('AudD error:', error);
-    return [];
-  }
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -560,48 +514,12 @@ serve(async (req) => {
     console.log('Applying audio normalization...');
     arrayBuffer = normalizeAudioBuffer(arrayBuffer);
 
-    // Run both APIs in parallel for maximum coverage
-    console.log('Querying ACRCloud and AudD in parallel...');
-    const [acrcloudResults, auddResults] = await Promise.all([
-      identifyWithACRCloud(arrayBuffer, audioFile.name),
-      identifyWithAudD(arrayBuffer),
-    ]);
+    // Run ACRCloud fingerprinting
+    console.log('Querying ACRCloud...');
+    const acrcloudResults = await identifyWithACRCloud(arrayBuffer, audioFile.name);
 
-    // ENHANCED: Smart deduplication with multi-service validation
-    // Tracks found by multiple services get confidence boost
-    const trackScores = new Map<string, { track: any, serviceCount: number, totalConfidence: number }>();
-    
-    const allResults = [...acrcloudResults, ...auddResults];
-    
-    for (const result of allResults) {
-      const key = `${result.title}-${result.artist}`;
-      const existing = trackScores.get(key);
-      
-      if (existing) {
-        // Track found by multiple services - boost confidence
-        existing.serviceCount++;
-        existing.totalConfidence += (result.confidence || 70);
-        // Merge metadata from multiple sources
-        existing.track = {
-          ...existing.track,
-          ...result,
-          confidence: existing.totalConfidence / existing.serviceCount,
-          sources: [...(existing.track.sources || [existing.track.source]), result.source],
-        };
-      } else {
-        trackScores.set(key, {
-          track: { ...result, sources: [result.source] },
-          serviceCount: 1,
-          totalConfidence: result.confidence || 70,
-        });
-      }
-    }
-
-    let matches = Array.from(trackScores.values()).map(entry => ({
-      ...entry.track,
-      confidence: entry.totalConfidence / entry.serviceCount,
-      service_count: entry.serviceCount, // Number of services that found this track
-    }));
+    // Use ACRCloud results directly
+    let matches = acrcloudResults;
 
     // Fetch Spotify track details (artwork and preview URLs) for tracks with spotify_id
     const spotifyToken = await getSpotifyToken();
@@ -695,8 +613,7 @@ serve(async (req) => {
       console.log(`After year filter (${filterYear}):`, matches.length, 'matches');
     }
 
-    console.log('Found matches:', matches.length);
-    console.log('Results by service - ACRCloud:', acrcloudResults.length, 'AudD:', auddResults.length);
+    console.log('Found matches from ACRCloud:', matches.length);
 
     return new Response(
       JSON.stringify({ 
@@ -704,12 +621,11 @@ serve(async (req) => {
         matches,
         sources_used: {
           acrcloud: acrcloudResults.length > 0,
-          audd: auddResults.length > 0,
         },
         optimization_applied: {
           audio_normalization: true,
           larger_segments: true,
-          dual_service_validation: true,
+          enhanced_overlap: true,
         }
       }),
       { 
