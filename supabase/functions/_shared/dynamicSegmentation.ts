@@ -21,7 +21,19 @@ export function selectDynamicSegments(
   targetSegmentCount: number,
   deepScan: boolean = false
 ): AudioSegment[] {
-  const samples = new Float32Array(audioBuffer);
+  // Ensure buffer is properly aligned for Float32Array (multiple of 4 bytes)
+  const byteLength = audioBuffer.byteLength;
+  const alignedLength = Math.floor(byteLength / 4) * 4;
+  
+  if (alignedLength === 0) {
+    throw new Error('Audio buffer too small for analysis');
+  }
+  
+  const alignedBuffer = alignedLength === byteLength 
+    ? audioBuffer 
+    : audioBuffer.slice(0, alignedLength);
+    
+  const samples = new Float32Array(alignedBuffer);
   const fileSize = audioBuffer.byteLength;
   
   console.log('\n🎯 DYNAMIC SEGMENT ANALYSIS');
