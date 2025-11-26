@@ -214,21 +214,27 @@ async function identifySegmentWithACRCloud(
     if (data.metadata?.music) {
       console.log(`✅ ${segmentName} - Found ${data.metadata.music.length} results (${queryDuration}ms)`);
       
-      return data.metadata.music.map(track => ({
-        title: track.title,
-        artist: track.artists.map(a => a.name).join(', '),
-        album: track.album.name,
-        confidence: track.score,
-        source: 'ACRCloud',
-        isrc: track.external_ids?.isrc,
-        spotify_id: track.external_metadata?.spotify?.track?.id,
-        spotify_album_id: track.external_metadata?.spotify?.album?.id,
-        apple_music_id: track.external_metadata?.applemusic?.track?.id || 
-                        track.external_metadata?.apple_music?.track?.id,
-        youtube_id: track.external_metadata?.youtube?.vid,
-        release_date: track.release_date,
-        segment: segmentName,
-      }));
+      return data.metadata.music.map(track => {
+        const confidence = track.score;
+        const match_quality = confidence >= 85 ? 'high' : confidence >= 60 ? 'medium' : 'low';
+        
+        return {
+          title: track.title,
+          artist: track.artists.map(a => a.name).join(', '),
+          album: track.album.name,
+          confidence: confidence,
+          source: 'ACRCloud',
+          isrc: track.external_ids?.isrc,
+          spotify_id: track.external_metadata?.spotify?.track?.id,
+          spotify_album_id: track.external_metadata?.spotify?.album?.id,
+          apple_music_id: track.external_metadata?.applemusic?.track?.id || 
+                          track.external_metadata?.apple_music?.track?.id,
+          youtube_id: track.external_metadata?.youtube?.vid,
+          release_date: track.release_date,
+          segment: segmentName,
+          match_quality: match_quality as 'high' | 'medium' | 'low',
+        };
+      });
     }
 
     console.log(`ℹ️  ${segmentName} - No results (${queryDuration}ms)`);
