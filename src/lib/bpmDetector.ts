@@ -1,4 +1,4 @@
-import * as MusicTempo from 'music-tempo';
+import MusicTempo from 'music-tempo';
 
 export async function analyzeBPM(audioFile: File): Promise<number> {
   return new Promise((resolve, reject) => {
