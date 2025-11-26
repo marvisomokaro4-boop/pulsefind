@@ -29,20 +29,40 @@ interface Notification {
 const Notifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [markingAsRead, setMarkingAsRead] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
   const navigate = useNavigate();
   const { plan } = useSubscription();
   const { toast } = useToast();
 
+  // Check authentication first
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+      
+      setUser(user);
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  // Check subscription plan
   useEffect(() => {
     if (plan !== 'Pro') {
       navigate('/pricing');
       return;
     }
-
-    fetchNotifications();
   }, [plan, navigate]);
 
+  // Fetch notifications with explicit user_id filtering
   const fetchNotifications = async () => {
+    if (!user) return;
+
     try {
       const { data, error } = await supabase
         .from('beat_notifications')
@@ -51,6 +71,7 @@ const Notifications = () => {
           beat:beats(file_name),
           match:beat_matches(song_title, artist, album, spotify_url, apple_music_url)
         `)
+        .eq('user_id', user.id) // Explicit user_id filtering for security
         .order('notified_at', { ascending: false })
         .limit(50);
 
@@ -68,20 +89,103 @@ const Notifications = () => {
     }
   };
 
+  // Initial fetch when user is available
+  useEffect(() => {
+    if (user && plan === 'Pro') {
+      fetchNotifications();
+    }
+  }, [user, plan]);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('beat_notifications_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'beat_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('New notification received:', payload);
+          
+          // Fetch the full notification with related data
+          supabase
+            .from('beat_notifications')
+            .select(`
+              *,
+              beat:beats(file_name),
+              match:beat_matches(song_title, artist, album, spotify_url, apple_music_url)
+            `)
+            .eq('id', payload.new.id)
+            .single()
+            .then(({ data, error }) => {
+              if (!error && data) {
+                setNotifications(prev => [data, ...prev]);
+                toast({
+                  title: '🎵 New Beat Match!',
+                  description: `A new song has been found using your beat "${data.beat.file_name}"`,
+                });
+              }
+            });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'beat_notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          setNotifications(prev =>
+            prev.map(n => (n.id === payload.new.id ? { ...n, ...payload.new } : n))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, toast]);
+
   const markAsRead = async (id: string) => {
+    if (!user) return;
+
+    setMarkingAsRead(id);
+    
     try {
       const { error } = await supabase
         .from('beat_notifications')
         .update({ read: true })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id); // Additional security check
 
       if (error) throw error;
 
       setNotifications(prev =>
         prev.map(n => (n.id === id ? { ...n, read: true } : n))
       );
+
+      toast({
+        title: 'Marked as read',
+        description: 'Notification has been marked as read',
+      });
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark notification as read',
+        variant: 'destructive',
+      });
+    } finally {
+      setMarkingAsRead(null);
     }
   };
 
@@ -150,9 +254,16 @@ const Notifications = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => markAsRead(notification.id)}
+                            disabled={markingAsRead === notification.id}
                           >
-                            <Check className="w-4 h-4 mr-2" />
-                            Mark Read
+                            {markingAsRead === notification.id ? (
+                              <>Loading...</>
+                            ) : (
+                              <>
+                                <Check className="w-4 h-4 mr-2" />
+                                Mark Read
+                              </>
+                            )}
                           </Button>
                         )}
                       </div>
