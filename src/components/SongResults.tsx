@@ -55,7 +55,7 @@ interface SongResultsProps {
 
 const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonymous = false }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
-  const [minConfidence, setMinConfidence] = useState(50);
+  const [minConfidence, setMinConfidence] = useState(40);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [matchingMode, setMatchingMode] = useState<'strict' | 'loose'>('strict');
   const [expandedMatchIndex, setExpandedMatchIndex] = useState<number | null>(null);
