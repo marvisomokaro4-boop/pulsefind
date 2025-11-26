@@ -383,6 +383,79 @@ serve(async (req) => {
   try {
     console.log('\n🎵 === NEW BEAT IDENTIFICATION REQUEST ===\n');
     
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    
+    // Check if user is authenticated (optional for anonymous scans)
+    const authHeader = req.headers.get('Authorization');
+    let userId: string | null = null;
+    let isAnonymous = true;
+    
+    if (authHeader) {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
+        authHeader.replace('Bearer ', '')
+      );
+      if (user && !authError) {
+        userId = user.id;
+        isAnonymous = false;
+      }
+    }
+    
+    // For anonymous users, check scan limit by IP
+    if (isAnonymous) {
+      const clientIp = req.headers.get('x-forwarded-for') || 
+                       req.headers.get('x-real-ip') || 
+                       'unknown';
+      
+      console.log(`🕵️ Anonymous scan request from IP: ${clientIp}`);
+      
+      // Check if IP has already scanned
+      const { data: existingScan, error: scanError } = await supabaseClient
+        .from('anonymous_scans')
+        .select('scan_count')
+        .eq('ip_address', clientIp)
+        .single();
+      
+      if (scanError && scanError.code !== 'PGRST116') { // PGRST116 = not found
+        console.error('Error checking anonymous scan:', scanError);
+      }
+      
+      if (existingScan && existingScan.scan_count >= 1) {
+        console.log(`❌ Anonymous user has exceeded free scan limit`);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Free scan limit reached',
+            message: 'You have used your free scan. Sign up to access unlimited scans!',
+            requiresAuth: true
+          }),
+          { 
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // Update or create scan record
+      if (existingScan) {
+        await supabaseClient
+          .from('anonymous_scans')
+          .update({ 
+            scan_count: existingScan.scan_count + 1,
+            last_scan_at: new Date().toISOString()
+          })
+          .eq('ip_address', clientIp);
+      } else {
+        await supabaseClient
+          .from('anonymous_scans')
+          .insert({ 
+            ip_address: clientIp,
+            scan_count: 1
+          });
+      }
+    }
+    
     // Rate limiting
     const identifier = getClientIdentifier(req);
     const rateLimitResult = await checkRateLimit(identifier, 'identify-beat', { maxRequests: 10, windowMinutes: 1 });
@@ -419,11 +492,6 @@ serve(async (req) => {
 
     const arrayBuffer = await audioFile.arrayBuffer();
     
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
-    
     // Run simplified ACRCloud scanning
     const { results: matches, metrics, fromCache } = await identifyWithSimplifiedACRCloud(
       arrayBuffer, 
@@ -438,7 +506,8 @@ serve(async (req) => {
         JSON.stringify({ 
           matches: [],
           message: "No confirmed matches found. Try uploading a longer or clearer version of the beat.",
-          metrics
+          metrics,
+          isAnonymous
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -494,7 +563,8 @@ serve(async (req) => {
         matches,
         total: matches.length,
         metrics,
-        fromCache
+        fromCache,
+        isAnonymous
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      anonymous_scans: {
+        Row: {
+          created_at: string | null
+          id: string
+          ip_address: string
+          last_scan_at: string | null
+          scan_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ip_address: string
+          last_scan_at?: string | null
+          scan_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ip_address?: string
+          last_scan_at?: string | null
+          scan_count?: number | null
+        }
+        Relationships: []
+      }
+      auto_alert_settings: {
+        Row: {
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          last_scan_at: string | null
+          scan_frequency: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          last_scan_at?: string | null
+          scan_frequency?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          last_scan_at?: string | null
+          scan_frequency?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       beat_fingerprints: {
         Row: {
           album: string | null
@@ -528,6 +582,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_anonymous_scans: { Args: never; Returns: undefined }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       get_scan_usage: {
         Args: { _user_id: string }

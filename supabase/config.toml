@@ -33,3 +33,6 @@ verify_jwt = true
 [functions.generate-evidence-package]
 verify_jwt = true
 
+[functions.auto-alert-scan]
+verify_jwt = false
+
