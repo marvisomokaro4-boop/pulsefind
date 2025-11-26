@@ -252,18 +252,21 @@ export type Database = {
         Row: {
           created_at: string | null
           email: string | null
+          has_seen_onboarding: boolean | null
           id: string
           logo_url: string | null
         }
         Insert: {
           created_at?: string | null
           email?: string | null
+          has_seen_onboarding?: boolean | null
           id: string
           logo_url?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string | null
+          has_seen_onboarding?: boolean | null
           id?: string
           logo_url?: string | null
         }

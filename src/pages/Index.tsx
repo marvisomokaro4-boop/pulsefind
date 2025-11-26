@@ -14,6 +14,7 @@ import { LandingFeatures } from "@/components/LandingFeatures";
 import { LandingCTA } from "@/components/LandingCTA";
 import { PulseFindLogo } from "@/components/PulseFindLogo";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { WelcomeModal } from "@/components/WelcomeModal";
 
 interface Match {
   title: string;
@@ -45,6 +46,7 @@ const Index = () => {
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [monthlyUploads, setMonthlyUploads] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -57,6 +59,7 @@ const Index = () => {
         setUser(session.user);
         checkAdminStatus(session.user.id);
         checkMonthlyUploads(session.user.id);
+        checkOnboardingStatus(session.user.id);
       }
     });
 
@@ -67,6 +70,7 @@ const Index = () => {
         setUser(session.user);
         checkAdminStatus(session.user.id);
         checkMonthlyUploads(session.user.id);
+        checkOnboardingStatus(session.user.id);
       } else {
         setUser(null);
       }
@@ -84,6 +88,19 @@ const Index = () => {
       .maybeSingle();
     
     setIsAdmin(!!data);
+  };
+
+  const checkOnboardingStatus = async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("has_seen_onboarding")
+      .eq("id", userId)
+      .single();
+    
+    // Show welcome modal if user hasn't seen onboarding
+    if (data && !data.has_seen_onboarding) {
+      setShowWelcomeModal(true);
+    }
   };
 
   const checkMonthlyUploads = async (userId: string) => {
@@ -258,6 +275,11 @@ const Index = () => {
       <UpgradeModal 
         open={showUpgradeModal}
         onOpenChange={setShowUpgradeModal}
+      />
+
+      <WelcomeModal
+        open={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
       />
 
       {/* Results Section */}
