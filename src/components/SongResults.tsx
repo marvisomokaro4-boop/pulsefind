@@ -15,8 +15,6 @@ import { useSubscription } from "@/contexts/SubscriptionContext";
 import ConfidenceFilter from "./ConfidenceFilter";
 import AlbumCover from "./AlbumCover";
 import AudioPreview from "./AudioPreview";
-import SimilarSongs from "./SimilarSongs";
-import CopyrightAnalysis from "./CopyrightAnalysis";
 import { useState } from "react";
 
 interface Match {
@@ -396,13 +394,6 @@ const SongResults = ({ matches }: SongResultsProps) => {
         </Card>
       )}
 
-      {/* Pro Features: Similar Songs & Copyright Detection */}
-      {isPro && matches.length > 0 && (
-        <div className="grid md:grid-cols-2 gap-6 mt-8">
-          <SimilarSongs matches={matches} />
-          <CopyrightAnalysis matches={matches} beatName="Your Beat" />
-        </div>
-      )}
     </div>
   );
 };
