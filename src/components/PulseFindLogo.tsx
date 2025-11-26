@@ -25,30 +25,15 @@ export const PulseFindLogo = ({
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      {/* Logo container with pulse animations */}
+      {/* Logo container */}
       <div className="relative">
-        {/* Outer pulse ring */}
-        <div className={cn(
-          "absolute -inset-2 rounded-2xl bg-primary/20 blur-sm",
-          "animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
-        )} />
-        
-        {/* Middle pulse ring */}
-        <div className={cn(
-          "absolute -inset-1 rounded-2xl bg-primary/30 blur-sm",
-          "animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]"
-        )} style={{ animationDelay: "0.15s" }} />
-        
         {/* Logo display */}
         <div 
           className={cn(
             "relative rounded-2xl bg-gradient-primary flex items-center justify-center",
-            "shadow-[0_0_20px_hsl(var(--primary)/0.5)]",
-            "animate-[pulse_2s_cubic-bezier(0.4,0,0.6,1)_infinite]",
             "overflow-hidden"
           )}
           style={{ 
-            animationDelay: "0.3s",
             width: sizes.width,
             height: sizes.height 
           }}
