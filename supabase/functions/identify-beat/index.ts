@@ -698,14 +698,17 @@ async function tryMultipleQueryStrategies(
     allResults.push(...fullResults);
     console.log(`Strategy 1 found ${fullResults.length} results`);
     
-    // If we got good results (score >= 85), return early
-    if (fullResults.some(r => r.confidence >= 85)) {
-      console.log('Strategy 1 found high-confidence matches, skipping other strategies');
+    // If we got sufficient results from full audio scan, return early
+    if (fullResults.length >= 3) {
+      console.log('Full audio scan found sufficient results, skipping alternate segments');
       return allResults;
     }
   } catch (error) {
     console.error('Strategy 1 failed:', error);
   }
+  
+  // Only try alternate segments if full audio scan found few/no results
+  console.log('Full audio scan found few results, trying alternate segments...');
   
   // Strategy 2: 10-second centered segment
   console.log('Strategy 2: 10-second centered segment');
@@ -1010,36 +1013,57 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
 
     console.log(`After deduplication: ${uniqueTracks.length} unique tracks`);
     
-    // Apply strict validation rules to reduce false positives
+    // Log raw results for debugging
+    console.log('=== VALIDATION REPORT ===');
+    console.log(`Total raw results before filtering: ${uniqueTracks.length}`);
+    
+    // Apply validation rules to reduce false positives
+    const validationStats = {
+      lowConfidence: 0,
+      missingMetadata: 0,
+      durationMismatch: 0,
+      shortPlayDuration: 0,
+    };
+    
     let results = uniqueTracks.filter(track => {
-      // Rule 1: Minimum confidence score of 85
-      if (track.confidence < 85) {
-        console.log(`Rejected: "${track.title}" - Low confidence (${track.confidence}%)`);
+      // Rule 1: Minimum confidence score of 70 (lowered from 85)
+      if (track.confidence < 70) {
+        validationStats.lowConfidence++;
+        console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Low confidence (${track.confidence}%)`);
         return false;
       }
       
-      // Rule 2: Must have valid metadata (ISRC, title, artist) - ISRC is now required
-      if (!track.isrc || !track.title || !track.artist) {
-        console.log(`Rejected: "${track.title}" - Missing ISRC, title, or artist (ISRC: ${track.isrc || 'none'})`);
+      // Rule 2: Must have valid metadata (title and artist required, ISRC optional)
+      if (!track.title || !track.artist) {
+        validationStats.missingMetadata++;
+        console.log(`❌ Rejected: "${track.title || 'Unknown'}" - Missing title or artist`);
         return false;
       }
       
       // Rule 3: Duration validation (if available)
       if (track.duration_diff && track.duration_diff > 5) {
-        console.log(`Rejected: "${track.title}" - Duration mismatch (${track.duration_diff.toFixed(1)}s diff)`);
+        validationStats.durationMismatch++;
+        console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Duration mismatch (${track.duration_diff.toFixed(1)}s diff)`);
         return false;
       }
       
       // Rule 4: Played duration must be >= 10 seconds (if available)
       if (track.played_duration && track.played_duration < 10) {
-        console.log(`Rejected: "${track.title}" - Insufficient match duration (${track.played_duration.toFixed(1)}s)`);
+        validationStats.shortPlayDuration++;
+        console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Insufficient match duration (${track.played_duration.toFixed(1)}s)`);
         return false;
       }
       
+      console.log(`✅ Accepted: "${track.title}" by ${track.artist} (${track.confidence}% confidence)`);
       return true;
     });
     
-    console.log(`After strict validation (≥85% confidence + metadata + duration checks): ${results.length} tracks`);
+    console.log(`=== FILTERING STATS ===`);
+    console.log(`Rejected due to low confidence (<70%): ${validationStats.lowConfidence}`);
+    console.log(`Rejected due to missing metadata: ${validationStats.missingMetadata}`);
+    console.log(`Rejected due to duration mismatch (>5s): ${validationStats.durationMismatch}`);
+    console.log(`Rejected due to short play duration (<10s): ${validationStats.shortPlayDuration}`);
+    console.log(`Final valid results: ${results.length} tracks`);
     
     // Track average score
     if (results.length > 0) {
