@@ -16,7 +16,7 @@ export const LandingHero = () => {
           <div className="flex justify-center mb-6">
             <Badge className="px-4 py-2 text-sm bg-primary/20 text-primary border-primary/30 animate-pulse">
               <Sparkles className="w-4 h-4 mr-2" />
-              Launch Offer: First 50 Users Get Elite Free for 3 Months!
+              Launch Offer: First 50 Users Get Pro Free for 3 Months!
             </Badge>
           </div>
 

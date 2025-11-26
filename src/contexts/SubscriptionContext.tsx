@@ -10,7 +10,7 @@ interface SubscriptionContextType {
 
 const SubscriptionContext = createContext<SubscriptionContextType>({
   plan: 'Free',
-  scansPerDay: 3,
+  scansPerDay: 1,
   isLoading: true,
   refreshSubscription: async () => {},
 });
@@ -19,7 +19,7 @@ export const useSubscription = () => useContext(SubscriptionContext);
 
 export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
   const [plan, setPlan] = useState('Free');
-  const [scansPerDay, setScansPerDay] = useState(3);
+  const [scansPerDay, setScansPerDay] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [hasAuthError, setHasAuthError] = useState(false);
 
@@ -27,7 +27,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     // If we've detected an auth error, don't keep trying until user logs in again
     if (hasAuthError) {
       setPlan('Free');
-      setScansPerDay(3);
+      setScansPerDay(1);
       setIsLoading(false);
       return;
     }
@@ -39,7 +39,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       if (sessionError || !session || !session.access_token) {
         // No valid session, use Free tier without calling edge function
         setPlan('Free');
-        setScansPerDay(3);
+        setScansPerDay(1);
         setIsLoading(false);
         return;
       }
@@ -51,7 +51,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       if (expiresAt <= now) {
         // Session has expired, don't call edge function
         setPlan('Free');
-        setScansPerDay(3);
+        setScansPerDay(1);
         setIsLoading(false);
         return;
       }
@@ -66,7 +66,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
           setHasAuthError(true);
           await supabase.auth.signOut();
           setPlan('Free');
-          setScansPerDay(3);
+          setScansPerDay(1);
           setIsLoading(false);
           return;
         }
@@ -83,21 +83,21 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
           setHasAuthError(true);
           await supabase.auth.signOut();
           setPlan('Free');
-          setScansPerDay(3);
+          setScansPerDay(1);
           setIsLoading(false);
           return;
         }
         
         setPlan('Free');
-        setScansPerDay(3);
+        setScansPerDay(1);
       } else if (data) {
         setPlan(data.plan || 'Free');
-        setScansPerDay(data.scans_per_day || 3);
+        setScansPerDay(data.scans_per_day || 1);
       }
     } catch (error) {
       console.error('Error refreshing subscription:', error);
       setPlan('Free');
-      setScansPerDay(3);
+      setScansPerDay(1);
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +114,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
       } else if (event === 'SIGNED_OUT') {
         setHasAuthError(false); // Reset auth error flag
         setPlan('Free');
-        setScansPerDay(3);
+        setScansPerDay(1);
         setIsLoading(false);
       }
     });

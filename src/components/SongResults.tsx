@@ -117,7 +117,6 @@ const SongResults = ({ matches }: SongResultsProps) => {
   // Apply Free tier restrictions
   const isFree = plan === 'Free';
   const isPro = plan === 'Pro';
-  const isElite = plan === 'Elite';
   
   let displayedMatches = showLowConfidence ? matches : highConfidenceMatches;
   
@@ -374,7 +373,7 @@ const SongResults = ({ matches }: SongResultsProps) => {
       )}
 
       {/* Pro Features: Similar Songs & Copyright Detection */}
-      {(isPro || isElite) && matches.length > 0 && (
+      {isPro && matches.length > 0 && (
         <div className="grid md:grid-cols-2 gap-6 mt-8">
           <SimilarSongs matches={matches} />
           <CopyrightAnalysis matches={matches} beatName="Your Beat" />

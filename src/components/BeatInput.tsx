@@ -37,9 +37,10 @@ interface BeatResult {
 interface BeatInputProps {
   onMatchesFound: (matches: Match[]) => void;
   onBatchResults?: (results: BeatResult[]) => void;
+  checkUploadLimit?: () => boolean;
 }
 
-const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
+const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInputProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [isComplete, setIsComplete] = useState(false);
@@ -150,6 +151,11 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    // Check upload limit for free tier
+    if (checkUploadLimit && !checkUploadLimit()) {
+      return;
+    }
+
     const filesArray = Array.from(files);
 
     // Check scan limits
@@ -173,7 +179,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults }: BeatInputProps) => {
       if (usageData && usageData.length > 0) {
         const { scan_count, scans_per_day } = usageData[0];
         
-        // Check if unlimited (Elite tier)
+        // Check if unlimited (Pro tier)
         if (scans_per_day !== -1 && scan_count >= scans_per_day) {
           toast({
             title: "Daily Limit Reached",

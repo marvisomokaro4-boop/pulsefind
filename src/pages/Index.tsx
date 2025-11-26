@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music2, LogOut, History as HistoryIcon, Shield, Crown, Bell } from "lucide-react";
+import { Music2, LogOut, History as HistoryIcon, Shield, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { LandingHero } from "@/components/LandingHero";
 import { LandingFeatures } from "@/components/LandingFeatures";
 import { LandingCTA } from "@/components/LandingCTA";
 import { PulseFindLogo } from "@/components/PulseFindLogo";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 interface Match {
   title: string;
@@ -43,6 +44,8 @@ const Index = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [monthlyUploads, setMonthlyUploads] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { plan, scansPerDay, isLoading } = useSubscription();
@@ -53,6 +56,7 @@ const Index = () => {
       if (session) {
         setUser(session.user);
         checkAdminStatus(session.user.id);
+        checkMonthlyUploads(session.user.id);
       }
     });
 
@@ -62,6 +66,7 @@ const Index = () => {
       if (session) {
         setUser(session.user);
         checkAdminStatus(session.user.id);
+        checkMonthlyUploads(session.user.id);
       } else {
         setUser(null);
       }
@@ -81,16 +86,49 @@ const Index = () => {
     setIsAdmin(!!data);
   };
 
+  const checkMonthlyUploads = async (userId: string) => {
+    // Get current month's upload count
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const { data } = await supabase
+      .from("beats")
+      .select("id")
+      .eq("user_id", userId)
+      .gte("uploaded_at", firstDayOfMonth.toISOString());
+    
+    setMonthlyUploads(data?.length || 0);
+  };
+
+  const checkUploadLimit = (): boolean => {
+    if (plan === 'Pro' || scansPerDay === -1) {
+      return true; // No limit for Pro users
+    }
+    
+    if (monthlyUploads >= 1) {
+      setShowUpgradeModal(true);
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleMatchesFound = (foundMatches: Match[]) => {
     setMatches(foundMatches);
     setBatchResults([]);
     setHasSearched(true);
+    if (user) {
+      checkMonthlyUploads(user.id);
+    }
   };
 
   const handleBatchResults = (results: BeatResult[]) => {
     setBatchResults(results);
     setMatches([]);
     setHasSearched(true);
+    if (user) {
+      checkMonthlyUploads(user.id);
+    }
   };
 
   const handleSignOut = async () => {
@@ -147,16 +185,6 @@ const Index = () => {
               <HistoryIcon className="w-4 h-4 mr-2" />
               History
             </Button>
-            {plan === 'Elite' && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/notifications")}
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Notifications
-              </Button>
-            )}
             {isAdmin && (
               <Button
                 variant="outline"
@@ -213,11 +241,24 @@ const Index = () => {
 
       {/* Beat Input Section */}
       <section className="container mx-auto px-4 py-16">
+        {plan === 'Free' && (
+          <div className="mb-6 text-center">
+            <Badge variant={monthlyUploads >= 1 ? "destructive" : "secondary"}>
+              {monthlyUploads}/1 uploads this month
+            </Badge>
+          </div>
+        )}
         <BeatInput 
           onMatchesFound={handleMatchesFound}
           onBatchResults={handleBatchResults}
+          checkUploadLimit={checkUploadLimit}
         />
       </section>
+
+      <UpgradeModal 
+        open={showUpgradeModal}
+        onOpenChange={setShowUpgradeModal}
+      />
 
       {/* Results Section */}
       {hasSearched && (
