@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Music, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { BeatLeaderboard } from "@/components/BeatLeaderboard";
 
 interface BeatWithMatches {
   id: string;
@@ -102,6 +103,9 @@ const History = () => {
           </Button>
           <h1 className="text-3xl font-bold">Beat History</h1>
         </div>
+
+        {/* Beat Leaderboard */}
+        <BeatLeaderboard />
 
         {beats.length === 0 ? (
           <Card className="p-12 text-center bg-card/50 backdrop-blur border-primary/20">
