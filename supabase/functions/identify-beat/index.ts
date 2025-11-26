@@ -419,37 +419,6 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
   }
 }
 
-// Audio preprocessing: normalize audio levels to improve fingerprinting accuracy
-function normalizeAudioBuffer(buffer: ArrayBuffer): ArrayBuffer {
-  try {
-    // Create a copy of the buffer
-    const audioArray = new Uint8Array(buffer);
-    const normalized = new Uint8Array(audioArray.length);
-    
-    // Find peak amplitude for normalization
-    let peak = 0;
-    for (let i = 0; i < audioArray.length; i++) {
-      const value = Math.abs(audioArray[i] - 128); // Convert to signed
-      if (value > peak) peak = value;
-    }
-    
-    // Normalize if peak is found
-    if (peak > 0) {
-      const factor = 127 / peak;
-      for (let i = 0; i < audioArray.length; i++) {
-        const signed = audioArray[i] - 128;
-        normalized[i] = Math.round(signed * factor) + 128;
-      }
-      console.log(`Audio normalized with peak ${peak}, factor ${factor.toFixed(2)}`);
-      return normalized.buffer;
-    }
-    
-    return buffer;
-  } catch (error) {
-    console.error('Error normalizing audio:', error);
-    return buffer; // Return original on error
-  }
-}
 
 
 
@@ -508,11 +477,7 @@ serve(async (req) => {
     }
 
     // Get audio file as ArrayBuffer
-    let arrayBuffer = await audioFile.arrayBuffer();
-    
-    // OPTIMIZATION: Apply audio preprocessing for better fingerprinting
-    console.log('Applying audio normalization...');
-    arrayBuffer = normalizeAudioBuffer(arrayBuffer);
+    const arrayBuffer = await audioFile.arrayBuffer();
 
     // Run ACRCloud fingerprinting
     console.log('Querying ACRCloud...');
@@ -623,7 +588,6 @@ serve(async (req) => {
           acrcloud: acrcloudResults.length > 0,
         },
         optimization_applied: {
-          audio_normalization: true,
           larger_segments: true,
           enhanced_overlap: true,
         }
