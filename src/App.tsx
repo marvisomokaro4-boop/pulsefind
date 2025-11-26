@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import History from "./pages/History";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import Pricing from "./pages/Pricing";
+import PaymentSuccess from "./pages/PaymentSuccess";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
@@ -35,6 +36,7 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/history" element={<History />} />
                 <Route path="/pricing" element={<Pricing />} />
+                <Route path="/payment-success" element={<PaymentSuccess />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
