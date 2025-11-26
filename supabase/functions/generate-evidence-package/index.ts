@@ -121,6 +121,81 @@ serve(async (req) => {
     doc.text(`Low Confidence Matches (<60%): ${lowConfidence} - Remixes/variations`, 25, yPosition);
     yPosition += 12;
 
+    // Audio Similarity Visualization
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('AUDIO SIMILARITY ANALYSIS', 20, yPosition);
+    yPosition += 8;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Waveform match confidence across audio segments:', 20, yPosition);
+    yPosition += 8;
+
+    // Create visual confidence graph
+    const graphStartX = 20;
+    const graphWidth = pageWidth - 40;
+    const graphHeight = 40;
+    const barWidth = Math.min(graphWidth / matches.length, 15);
+    const maxConfidence = Math.max(...matches.map(m => m.confidence));
+
+    // Draw graph background
+    doc.setFillColor(245, 245, 245);
+    doc.rect(graphStartX, yPosition, graphWidth, graphHeight, 'F');
+
+    // Draw confidence bars
+    matches.forEach((match: Match, index: number) => {
+      const barHeight = (match.confidence / 100) * graphHeight;
+      const barX = graphStartX + (index * (graphWidth / matches.length));
+      
+      // Color based on confidence
+      if (match.confidence >= 85) {
+        doc.setFillColor(16, 185, 129); // Green
+      } else if (match.confidence >= 60) {
+        doc.setFillColor(245, 158, 11); // Orange
+      } else {
+        doc.setFillColor(239, 68, 68); // Red
+      }
+      
+      doc.rect(barX + 2, yPosition + graphHeight - barHeight, barWidth - 4, barHeight, 'F');
+    });
+
+    // Draw grid lines
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+    for (let i = 0; i <= 4; i++) {
+      const lineY = yPosition + (i * graphHeight / 4);
+      doc.line(graphStartX, lineY, graphStartX + graphWidth, lineY);
+    }
+
+    // Add percentage labels
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    for (let i = 0; i <= 4; i++) {
+      const percent = 100 - (i * 25);
+      const labelY = yPosition + (i * graphHeight / 4) + 2;
+      doc.text(`${percent}%`, graphStartX - 12, labelY);
+    }
+    doc.setTextColor(0, 0, 0);
+
+    yPosition += graphHeight + 8;
+
+    // Legend
+    doc.setFontSize(8);
+    doc.setFillColor(16, 185, 129);
+    doc.rect(graphStartX, yPosition, 8, 4, 'F');
+    doc.text('High (85%+)', graphStartX + 12, yPosition + 3);
+    
+    doc.setFillColor(245, 158, 11);
+    doc.rect(graphStartX + 60, yPosition, 8, 4, 'F');
+    doc.text('Medium (60-84%)', graphStartX + 72, yPosition + 3);
+    
+    doc.setFillColor(239, 68, 68);
+    doc.rect(graphStartX + 130, yPosition, 8, 4, 'F');
+    doc.text('Low (<60%)', graphStartX + 142, yPosition + 3);
+
+    yPosition += 15;
+
     // Matches Detail
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
