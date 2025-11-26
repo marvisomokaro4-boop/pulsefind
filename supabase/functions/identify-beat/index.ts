@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
 import { searchYouTube } from "../_shared/youtubeSearch.ts";
 import { searchSpotify } from "../_shared/spotifySearch.ts";
+import { generateAudioFingerprint, calculateHammingDistance } from "../_shared/audioFingerprint.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -555,7 +556,66 @@ serve(async (req) => {
 
     const arrayBuffer = await audioFile.arrayBuffer();
     
-    // Run simplified ACRCloud scanning
+    // Step 1: Generate local binary fingerprint for fast exact matching
+    let localMatches: any[] = [];
+    try {
+      console.log("🔍 Generating binary fingerprint for local database matching...");
+      const fingerprint = await generateAudioFingerprint(arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 1024 * 1024))); // Use first 1MB
+      
+      // Search local database for matches using Hamming distance
+      const { data: storedFingerprints, error: fpError } = await supabaseClient
+        .from('beat_fingerprints')
+        .select('*')
+        .not('fingerprint_hash', 'is', null);
+      
+      if (!fpError && storedFingerprints && storedFingerprints.length > 0) {
+        console.log(`  Comparing against ${storedFingerprints.length} stored fingerprints...`);
+        
+        for (const stored of storedFingerprints) {
+          if (!stored.fingerprint_hash || stored.fingerprint_hash.length < 100) continue;
+          
+          // Calculate Hamming distance similarity
+          const similarity = calculateHammingDistance(
+            fingerprint.binaryFingerprint,
+            stored.fingerprint_hash
+          );
+          
+          // Strict mode: ≥85% similarity = exact match
+          // Loose mode: ≥70% similarity = close match
+          const threshold = matchingMode === 'strict' ? 0.85 : 0.70;
+          
+          if (similarity >= threshold) {
+            console.log(`  ✅ Local match: "${stored.song_title}" by ${stored.artist} (${(similarity * 100).toFixed(1)}% similarity)`);
+            
+            localMatches.push({
+              title: stored.song_title,
+              artist: stored.artist,
+              album: stored.album || '',
+              confidence: Math.floor(similarity * 100),
+              source: 'Local Database',
+              isrc: stored.isrc,
+              spotify_id: stored.spotify_id,
+              apple_music_id: stored.apple_music_id,
+              youtube_id: stored.youtube_id,
+              release_date: stored.release_date,
+              segment: 'binary_fingerprint',
+              match_quality: similarity >= 0.85 ? 'high' : 'medium',
+            });
+          }
+        }
+        
+        if (localMatches.length > 0) {
+          console.log(`✅ Found ${localMatches.length} local fingerprint matches\n`);
+        } else {
+          console.log(`  No local matches found\n`);
+        }
+      }
+    } catch (fpError) {
+      console.error("⚠️ Local fingerprint matching error:", fpError);
+      // Continue with ACRCloud even if local matching fails
+    }
+    
+    // Step 2: Run simplified ACRCloud scanning
     const { results: acrcloudMatches, metrics, fromCache, platformStats } = await identifyWithSimplifiedACRCloud(
       arrayBuffer, 
       audioFile.name,
@@ -621,8 +681,8 @@ serve(async (req) => {
     console.log(`  SoundCloud: ${soundcloudSuccess}/${songsToSearch.length} successful (${soundcloudMatches.length} matches)`);
     console.log(`  Spotify: ${spotifySuccess}/${songsToSearch.length} successful (${spotifyMatches.length} matches)`);
     
-    // Merge all results from all sources
-    let allMatches: any[] = [...acrcloudMatches];
+    // Merge all results from all sources (local + ACRCloud + multi-platform)
+    let allMatches: any[] = [...localMatches, ...acrcloudMatches];
     
     // Helper function to merge platform data into existing match
     const mergePlatformData = (existing: any, platformMatch: any, platformName: string, platformIdField: string, platformUrlField: string) => {
@@ -817,12 +877,59 @@ serve(async (req) => {
     const singleSource = matches.filter(m => !m.sources || m.sources.length === 1).length;
     console.log(`  Multi-source matches (higher priority): ${multiSource}`);
     console.log(`  Single-source matches: ${singleSource}\n`);
+    
+    // Store binary fingerprints in database for future local matching
+    if (matches.length > 0 && arrayBuffer) {
+      try {
+        console.log('💾 Storing binary fingerprints for future local matching...');
+        const fingerprint = await generateAudioFingerprint(
+          arrayBuffer.slice(0, Math.min(arrayBuffer.byteLength, 1024 * 1024))
+        );
+        
+        // Store top 3 matches as fingerprints
+        for (const match of matches.slice(0, 3)) {
+          await supabaseClient
+            .from('beat_fingerprints')
+            .upsert({
+              fingerprint_hash: fingerprint.binaryFingerprint,
+              song_title: match.title,
+              artist: match.artist,
+              album: match.album,
+              audio_duration_ms: fingerprint.duration_ms,
+              confidence_score: match.confidence,
+              spotify_url: match.spotify_url,
+              spotify_id: match.spotify_id,
+              youtube_url: match.youtube_url,
+              youtube_id: match.youtube_id,
+              apple_music_url: match.apple_music_url,
+              apple_music_id: match.apple_music_id,
+              preview_url: match.preview_url,
+              release_date: match.release_date,
+              popularity: match.popularity,
+              source: match.source || 'multi_source',
+              mfcc_features: fingerprint.mfcc,
+              isrc: match.isrc,
+            }, {
+              onConflict: 'fingerprint_hash',
+              ignoreDuplicates: false,
+            });
+        }
+        
+        console.log(`✅ Stored ${Math.min(matches.length, 3)} binary fingerprints\n`);
+      } catch (storeError) {
+        console.error("⚠️ Error storing fingerprints:", storeError);
+        // Don't fail the request if storage fails
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
         matches,
         total: matches.length,
-        metrics,
+        metrics: {
+          ...metrics,
+          localMatches: localMatches.length,
+        },
         fromCache,
         isAnonymous
       }),
