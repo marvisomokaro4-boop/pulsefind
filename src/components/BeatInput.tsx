@@ -329,17 +329,17 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
   };
 
   return (
-    <Card className="max-w-2xl mx-auto p-8 bg-card/50 backdrop-blur border-primary/20">
-      <div className="text-center space-y-6">
+    <Card className="max-w-2xl mx-auto p-4 sm:p-6 md:p-8 bg-card/50 backdrop-blur border-primary/20">
+      <div className="text-center space-y-4 sm:space-y-6">
         <div className="flex justify-center">
-          <div className="p-4 rounded-full bg-primary/10">
-            <Music className="w-12 h-12 text-primary" />
+          <div className="p-3 sm:p-4 rounded-full bg-primary/10">
+            <Music className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
           </div>
         </div>
 
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Upload Your Beat</h2>
-          <p className="text-muted-foreground">
+        <div className="px-4">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">Upload Your Beat</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Upload your full producer beat to find which songs are using it
           </p>
           <p className="text-xs text-muted-foreground mt-2">

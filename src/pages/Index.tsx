@@ -184,22 +184,24 @@ const Index = () => {
       <div className="border-b border-border bg-card/50 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <PulseFindLogo size="sm" />
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             {!isLoading && (
               <Button
                 variant={plan === 'Free' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => navigate("/pricing")}
+                className="text-xs sm:text-sm"
               >
                 {plan === 'Free' ? (
                   <>
-                    <Crown className="w-4 h-4 mr-2" />
-                    Upgrade
+                    <Crown className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Upgrade</span>
+                    <span className="sm:hidden">Pro</span>
                   </>
                 ) : (
                   <>
-                    <Badge variant="secondary" className="mr-2">{plan}</Badge>
-                    {scansPerDay === -1 ? 'Unlimited' : `${scansPerDay}/day`}
+                    <Badge variant="secondary" className="mr-1 sm:mr-2 text-xs">{plan}</Badge>
+                    <span className="hidden sm:inline">{scansPerDay === -1 ? 'Unlimited' : `${scansPerDay}/day`}</span>
                   </>
                 )}
               </Button>
@@ -208,23 +210,25 @@ const Index = () => {
               variant="outline"
               size="sm"
               onClick={() => navigate("/history")}
+              className="text-xs sm:text-sm"
             >
-              <HistoryIcon className="w-4 h-4 mr-2" />
-              History
+              <HistoryIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">History</span>
             </Button>
             {isAdmin && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate("/admin")}
+                className="text-xs sm:text-sm"
               >
-                <Shield className="w-4 h-4 mr-2" />
-                Admin
+                <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Admin</span>
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-xs sm:text-sm">
+              <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Sign Out</span>
             </Button>
           </div>
         </div>
@@ -233,18 +237,18 @@ const Index = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-gradient-primary opacity-10" />
-        <div className="container mx-auto px-4 py-20 relative">
+        <div className="container mx-auto px-4 py-12 sm:py-20 relative">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="flex justify-center mb-8">
+            <div className="flex justify-center mb-6 sm:mb-8">
               <PulseFindLogo size="xl" showText={false} />
             </div>
-            <h1 className="text-6xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-primary bg-clip-text text-transparent">
               PulseFind
             </h1>
-            <p className="text-2xl text-muted-foreground mb-4">
+            <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-3 sm:mb-4">
               Discover Who's Using Your Beats
             </p>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
               Upload your producer beat and find all the songs using it across Spotify, Apple Music, and more.
             </p>
           </div>
