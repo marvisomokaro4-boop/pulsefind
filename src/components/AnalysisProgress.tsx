@@ -14,9 +14,11 @@ const AnalysisProgress = ({ fileName, fileSize }: AnalysisProgressProps) => {
   // Calculate estimated segment count - simplified with 512KB segments and 50% overlap
   const estimatedSegments = Math.ceil(fileSize / (256 * 1024));
   
-  // Animate through segments
+  // Animate through segments - adjusted to match actual processing time
   useEffect(() => {
-    const segmentDuration = 300; // ms per segment animation
+    // Realistic timing: fingerprinting + ACRCloud + multi-platform search takes ~10-15s
+    // Spread the animation across this timeframe for better UX
+    const segmentDuration = 1200; // ms per segment animation (increased from 300ms)
     const interval = setInterval(() => {
       setCurrentSegment(prev => {
         if (prev >= estimatedSegments) {
