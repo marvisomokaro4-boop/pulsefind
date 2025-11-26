@@ -18,9 +18,6 @@ verify_jwt = true
 [functions.customer-portal]
 verify_jwt = true
 
-[functions.ai-enhance-search]
-verify_jwt = false
-
 [functions.recheck-missing-links]
 verify_jwt = true
 

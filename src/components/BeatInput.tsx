@@ -28,9 +28,6 @@ interface Match {
   album_cover_url?: string;
   preview_url?: string;
   popularity?: number;
-  is_ai_suggestion?: boolean;
-  ai_confidence?: 'high' | 'medium' | 'low';
-  ai_reasoning?: string;
 }
 
 interface BeatResult {
@@ -87,56 +84,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
       }
 
       const data = await response.json();
-      let allMatches = data.success ? data.matches : [];
-
-      // Call AI enhancement to find official songs from instrumentals
-      try {
-        console.log('Calling AI to enhance search results...');
-        const aiResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-enhance-search`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fileName: file.name,
-              existingMatches: allMatches.slice(0, 5) // Send top 5 for context
-            })
-          }
-        );
-
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          
-          if (aiData.suggestions && aiData.suggestions.length > 0) {
-            console.log(`AI suggested ${aiData.suggestions.length} additional songs`);
-            
-            // Convert AI suggestions to Match format
-            const aiMatches: Match[] = aiData.suggestions
-              .filter((s: any) => s.spotifyData)
-              .map((s: any) => ({
-                title: s.spotifyData.name,
-                artist: s.spotifyData.artists,
-                album: s.spotifyData.album,
-                source: 'AI Enhanced',
-                spotify_id: s.spotifyData.id,
-                spotify_url: s.spotifyData.spotifyUrl,
-                album_cover_url: s.spotifyData.albumArt,
-                preview_url: s.spotifyData.previewUrl,
-                popularity: s.spotifyData.popularity,
-                release_date: s.spotifyData.releaseDate,
-                is_ai_suggestion: true,
-                ai_confidence: s.confidence,
-                ai_reasoning: s.reasoning,
-                confidence: s.confidence === 'high' ? 90 : s.confidence === 'medium' ? 70 : 50
-              }));
-            
-            // Add AI matches at the beginning (they're likely the official songs)
-            allMatches = [...aiMatches, ...allMatches];
-          }
-        }
-      } catch (aiError) {
-        console.log('AI enhancement failed, using fingerprint results only:', aiError);
-      }
+      const allMatches = data.success ? data.matches : [];
 
       // Save to database
       if (data.success || allMatches.length > 0) {

@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Music, ExternalLink, Shield, Play, X, Flag, Lock, Crown } from "lucide-react";
+import { Music, ExternalLink, Shield, Play, X, Flag, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,9 +33,6 @@ interface Match {
   album_cover_url?: string;
   preview_url?: string;
   popularity?: number;
-  is_ai_suggestion?: boolean;
-  ai_confidence?: 'high' | 'medium' | 'low';
-  ai_reasoning?: string;
 }
 
 interface SongResultsProps {
@@ -176,16 +173,7 @@ const SongResults = ({ matches }: SongResultsProps) => {
                 title={match.title}
               />
               <div className="absolute top-4 right-4 flex gap-2 flex-wrap justify-end">
-                {match.is_ai_suggestion && (
-                  <Badge 
-                    variant="secondary" 
-                    className="backdrop-blur bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-500/30"
-                  >
-                    <Crown className="w-3 h-3 mr-1 fill-current text-purple-400" />
-                    AI Match
-                  </Badge>
-                )}
-                <Badge 
+                <Badge
                   variant="secondary" 
                   className={`backdrop-blur ${
                     match.preview_url 
@@ -264,13 +252,6 @@ const SongResults = ({ matches }: SongResultsProps) => {
             </div>
             
             <div className="p-4 space-y-3">
-              {match.is_ai_suggestion && match.ai_reasoning && (
-                <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded border border-primary/10">
-                  <span className="font-semibold text-primary">Why this match: </span>
-                  {match.ai_reasoning}
-                </div>
-              )}
-              
               {match.preview_url && (
                 <AudioPreview 
                   previewUrl={match.preview_url}
@@ -406,7 +387,6 @@ const SongResults = ({ matches }: SongResultsProps) => {
               </p>
             </div>
             <Button onClick={() => navigate('/pricing')} size="lg">
-              <Crown className="w-4 h-4 mr-2" />
               Upgrade to Pro
             </Button>
           </div>
