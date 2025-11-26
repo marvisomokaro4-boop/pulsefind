@@ -62,6 +62,7 @@ const Index = () => {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [monthlyUploads, setMonthlyUploads] = useState(0);
   const [debugMode, setDebugMode] = useState(false);
+  const [disableDeduplication, setDisableDeduplication] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { plan, scansPerDay, isLoading } = useSubscription();
@@ -294,16 +295,30 @@ const Index = () => {
         
         {/* Debug Mode Toggle */}
         {isAdmin && (
-          <div className="mb-6 flex items-center justify-center gap-2">
-            <Switch
-              id="debug-mode"
-              checked={debugMode}
-              onCheckedChange={setDebugMode}
-            />
-            <Label htmlFor="debug-mode" className="flex items-center gap-2 cursor-pointer">
-              <Bug className="w-4 h-4" />
-              Debug Mode (Show Raw ACRCloud Results)
-            </Label>
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center justify-center gap-2">
+              <Switch
+                id="debug-mode"
+                checked={debugMode}
+                onCheckedChange={setDebugMode}
+              />
+              <Label htmlFor="debug-mode" className="flex items-center gap-2 cursor-pointer">
+                <Bug className="w-4 h-4" />
+                Debug Mode
+              </Label>
+            </div>
+            {debugMode && (
+              <div className="flex items-center justify-center gap-2">
+                <Switch
+                  id="disable-dedup"
+                  checked={disableDeduplication}
+                  onCheckedChange={setDisableDeduplication}
+                />
+                <Label htmlFor="disable-dedup" className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground">
+                  Show Raw Results (No Deduplication)
+                </Label>
+              </div>
+            )}
           </div>
         )}
         
@@ -312,6 +327,7 @@ const Index = () => {
           onBatchResults={handleBatchResults}
           checkUploadLimit={checkUploadLimit}
           debugMode={debugMode}
+          disableDeduplication={disableDeduplication}
         />
       </section>
 
