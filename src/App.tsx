@@ -23,6 +23,7 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
 import TestAlerts from "./pages/TestAlerts";
+import SystemErrors from "./pages/SystemErrors";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
                   <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/admin" element={<AdminAnalytics />} />
+                  <Route path="/system-errors" element={<SystemErrors />} />
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/test-alerts" element={<TestAlerts />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
