@@ -364,21 +364,23 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                     </>
                   )}
                 </Badge>
-                <Badge 
-                  variant="secondary" 
-                  className={`backdrop-blur-md shadow-md text-white ${
-                    match.cached 
-                      ? 'bg-green-500/30 border-green-500/40' 
-                      : 'bg-background/90'
-                  }`}
-                >
-                  {match.cached 
-                    ? '⚡ Cached' 
-                    : match.sources && match.sources.length > 1 
-                      ? `${match.sources.join(' + ')}` 
-                      : match.source
-                  }
-                </Badge>
+                {(match.cached || (match.sources && match.sources.filter(s => s !== 'ACRCloud').length > 0) || (match.source && match.source !== 'ACRCloud')) && (
+                  <Badge 
+                    variant="secondary" 
+                    className={`backdrop-blur-md shadow-md text-white ${
+                      match.cached 
+                        ? 'bg-green-500/30 border-green-500/40' 
+                        : 'bg-background/90'
+                    }`}
+                  >
+                    {match.cached 
+                      ? '⚡ Cached' 
+                      : match.sources && match.sources.length > 1 
+                        ? `${match.sources.filter(s => s !== 'ACRCloud').join(' + ')}` 
+                        : match.source !== 'ACRCloud' ? match.source : ''
+                    }
+                  </Badge>
+                )}
               </div>
               <div className="absolute top-4 left-4 flex flex-col gap-1.5">
                 {match.confidence && (
