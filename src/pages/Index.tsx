@@ -349,8 +349,14 @@ const Index = () => {
       {/* Results Section */}
       {hasSearched && (
         <section className="container mx-auto px-4 pb-16 space-y-6">
-          {isAnonymousScan && matches.length > 0 && <AnonymousScanBanner />}
-          {matches.length > 0 && <SongResults matches={matches} debugMode={debugMode} searchMode={searchMode} />}
+          {matches.length > 0 && (
+            <SongResults 
+              matches={matches} 
+              debugMode={debugMode} 
+              searchMode={searchMode} 
+              isAnonymous={isAnonymousScan}
+            />
+          )}
           {batchResults.length > 0 && <BatchResults results={batchResults} />}
         </section>
       )}
