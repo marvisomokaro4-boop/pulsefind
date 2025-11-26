@@ -49,9 +49,10 @@ interface SongResultsProps {
   matches: Match[];
   debugMode?: boolean;
   searchMode?: 'beat' | 'producer-tag';
+  isAnonymous?: boolean;
 }
 
-const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongResultsProps) => {
+const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonymous = false }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const [minConfidence, setMinConfidence] = useState(50);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -228,6 +229,28 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
 
   return (
     <div className="space-y-6">
+      {/* Anonymous User Banner */}
+      {isAnonymous && (
+        <Card className="p-6 bg-gradient-to-r from-primary/10 via-primary/5 to-background border-primary/20">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                <Lock className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="text-lg font-semibold mb-1">We found {filteredMatches.length} matches!</h3>
+              <p className="text-sm text-muted-foreground">
+                Create a free account to view full song details, stream counts, confidence scores, and download evidence packages for DMCA takedowns.
+              </p>
+            </div>
+            <Button onClick={() => navigate('/auth')} className="gap-2 flex-shrink-0">
+              Sign Up Free
+            </Button>
+          </div>
+        </Card>
+      )}
+      
       {/* Debug Mode Banner */}
       {debugMode && (
         <Card className="p-4 bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800">
@@ -305,12 +328,20 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
         {displayedMatches.map((match, index) => (
           <Card
             key={`${match.title}-${match.artist}-${index}`}
-            className={`overflow-hidden bg-card transition-all group ${
+            className={`overflow-hidden bg-card transition-all group relative ${
               match.confidence && match.confidence < 70 
                 ? 'border-muted/50 opacity-90' 
                 : 'border-primary/10 hover:border-primary/30'
             }`}
           >
+            {isAnonymous && (
+              <div className="absolute inset-0 backdrop-blur-sm bg-background/60 z-10 flex items-center justify-center">
+                <div className="text-center p-4">
+                  <Lock className="w-8 h-8 mx-auto mb-2 text-primary" />
+                  <p className="text-sm font-medium">Sign up to view details</p>
+                </div>
+              </div>
+            )}
             <div className="relative aspect-square overflow-hidden">
               <AlbumCover
                 albumCoverUrl={match.album_cover_url}
