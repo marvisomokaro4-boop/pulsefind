@@ -250,7 +250,8 @@ async function identifySegmentWithACRCloud(
   arrayBuffer: ArrayBuffer, 
   fileName: string,
   segmentStart: number,
-  segmentName: string
+  segmentName: string,
+  priority: 'high' | 'normal' = 'normal'
 ): Promise<any[]> {
   const acrcloudHost = "identify-eu-west-1.acrcloud.com";
   const acrcloudAccessKey = Deno.env.get('ACRCLOUD_ACCESS_KEY');
@@ -266,7 +267,7 @@ async function identifySegmentWithACRCloud(
     const audioSample = arrayBuffer.slice(segmentStart, segmentStart + sampleSize);
     const audioData = new Uint8Array(audioSample);
     
-    console.log(`Processing ${segmentName} segment: ${sampleSize} bytes from offset ${segmentStart}`);
+    console.log(`Processing ${priority} priority ${segmentName} segment: ${sampleSize} bytes from offset ${segmentStart}`);
     
     const timestamp = Math.floor(Date.now() / 1000);
     const stringToSign = `POST\n/v1/identify\n${acrcloudAccessKey}\naudio\n1\n${timestamp}`;
@@ -335,7 +336,9 @@ async function identifySegmentWithACRCloud(
           release_date: track.release_date,
           album_cover_url: albumCoverUrl,
           segment: segmentName,
-          acrid: track.acrid, // Store ACRCloud ID for metadata lookup
+          segment_offset: segmentStart,
+          priority,
+          acrid: track.acrid,
         };
       });
     }
@@ -345,6 +348,31 @@ async function identifySegmentWithACRCloud(
     console.error(`ACRCloud error for ${segmentName}:`, error);
     return [];
   }
+}
+
+// Normalize strings for fuzzy matching
+function normalizeForMatching(str: string): string {
+  return str.toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^\w]/g, '')
+    .trim();
+}
+
+// Check if two tracks are likely the same with fuzzy matching
+function areSimilarTracks(track1: any, track2: any): boolean {
+  const title1 = normalizeForMatching(track1.title);
+  const title2 = normalizeForMatching(track2.title);
+  const artist1 = normalizeForMatching(track1.artist);
+  const artist2 = normalizeForMatching(track2.artist);
+  
+  // Exact normalized match
+  if (title1 === title2 && artist1 === artist2) return true;
+  
+  // One contains the other (for remixes, featuring artists, etc.)
+  const titleSimilar = title1.includes(title2) || title2.includes(title1);
+  const artistSimilar = artist1.includes(artist2) || artist2.includes(artist1);
+  
+  return titleSimilar && artistSimilar;
 }
 
 async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string): Promise<any[]> {
@@ -359,73 +387,124 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
   try {
     const fileSize = arrayBuffer.byteLength;
     const segmentSize = 500 * 1024; // 500KB per segment
-    const overlapSize = 250 * 1024; // 250KB overlap between segments for comprehensive coverage
-    const segments = [];
+    const overlapSize = 250 * 1024; // 250KB overlap
     
-    console.log(`Analyzing entire beat: ${fileSize} bytes with overlapping segments`);
+    console.log(`Analyzing entire beat: ${fileSize} bytes with smart segment prioritization`);
     
-    // Calculate number of segments needed to cover 100% of the beat
+    // Calculate all segment positions
+    const segmentPositions: Array<{ offset: number; priority: 'high' | 'normal' }> = [];
     let offset = 0;
     let segmentIndex = 0;
     
     while (offset < fileSize) {
       const remainingBytes = fileSize - offset;
-      const currentSegmentSize = Math.min(segmentSize, remainingBytes);
+      const percentage = (offset / fileSize) * 100;
       
-      // Calculate percentage through the beat
-      const percentage = Math.round((offset / fileSize) * 100);
+      // Strategic positions: beginning (0-10%), middle (45-55%), end (90-100%)
+      const isStrategic = percentage < 10 || (percentage > 45 && percentage < 55) || percentage > 90;
       
-      segments.push(
-        identifySegmentWithACRCloud(
-          arrayBuffer, 
-          fileName, 
-          offset, 
-          `segment ${segmentIndex + 1} (${percentage}%)`
-        )
-      );
+      segmentPositions.push({
+        offset,
+        priority: isStrategic ? 'high' : 'normal'
+      });
       
       segmentIndex++;
-      
-      // Move forward by segmentSize minus overlap to ensure coverage
       offset += segmentSize - overlapSize;
       
-      // Break if we're at the end
       if (remainingBytes <= segmentSize) break;
     }
     
-    console.log(`Created ${segments.length} overlapping segments for complete beat coverage`);
+    console.log(`Created ${segmentPositions.length} segments (${segmentPositions.filter(s => s.priority === 'high').length} high priority)`);
 
-    // Process all segments in parallel
-    const allSegmentResults = await Promise.all(segments);
-    const allTracks = allSegmentResults.flat();
+    // Process high priority segments first
+    const highPrioritySegments = segmentPositions.filter(s => s.priority === 'high');
+    const normalPrioritySegments = segmentPositions.filter(s => s.priority === 'normal');
+    
+    // Process in batches to manage memory
+    const batchSize = 5;
+    const allTracks: any[] = [];
+    
+    // Process high priority first
+    for (let i = 0; i < highPrioritySegments.length; i += batchSize) {
+      const batch = highPrioritySegments.slice(i, i + batchSize);
+      const batchPromises = batch.map((seg, idx) => 
+        identifySegmentWithACRCloud(
+          arrayBuffer,
+          fileName,
+          seg.offset,
+          `segment ${i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%)`,
+          'high'
+        )
+      );
+      const results = await Promise.all(batchPromises);
+      allTracks.push(...results.flat());
+      console.log(`Processed high priority batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(highPrioritySegments.length / batchSize)}`);
+    }
+    
+    // Then process normal priority
+    for (let i = 0; i < normalPrioritySegments.length; i += batchSize) {
+      const batch = normalPrioritySegments.slice(i, i + batchSize);
+      const batchPromises = batch.map((seg, idx) => 
+        identifySegmentWithACRCloud(
+          arrayBuffer,
+          fileName,
+          seg.offset,
+          `segment ${highPrioritySegments.length + i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%)`,
+          'normal'
+        )
+      );
+      const results = await Promise.all(batchPromises);
+      allTracks.push(...results.flat());
+      console.log(`Processed normal priority batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(normalPrioritySegments.length / batchSize)}`);
+    }
 
     console.log(`Total tracks found across all segments: ${allTracks.length}`);
 
-    // Aggregate results: group by title+artist and pick highest confidence
-    const trackMap = new Map<string, any>();
+    // Enhanced deduplication with fuzzy matching
+    const uniqueTracks: any[] = [];
     
     for (const track of allTracks) {
-      const key = `${track.title}-${track.artist}`;
-      const existing = trackMap.get(key);
+      const existingIdx = uniqueTracks.findIndex(t => areSimilarTracks(t, track));
       
-      if (!existing || track.confidence > existing.confidence) {
-        trackMap.set(key, track);
+      if (existingIdx === -1) {
+        // New unique track
+        uniqueTracks.push(track);
+      } else {
+        // Merge with existing - keep higher confidence
+        const existing = uniqueTracks[existingIdx];
+        if (track.confidence > existing.confidence) {
+          uniqueTracks[existingIdx] = {
+            ...track,
+            // Preserve any data from original that's missing in new one
+            spotify_id: track.spotify_id || existing.spotify_id,
+            apple_music_id: track.apple_music_id || existing.apple_music_id,
+            youtube_id: track.youtube_id || existing.youtube_id,
+          };
+        }
       }
     }
 
-    // Convert to array and sort by confidence
-    let results = Array.from(trackMap.values());
+    console.log(`After deduplication: ${uniqueTracks.length} unique tracks`);
     
-    // Filter out very low-confidence matches (below 40)
-    results = results.filter(track => track.confidence >= 40);
+    // Adaptive confidence threshold based on segment count
+    const totalSegments = segmentPositions.length;
+    const baseThreshold = 40;
+    const adaptiveThreshold = totalSegments > 15 ? baseThreshold - 5 : baseThreshold; // Lower threshold for more thorough scans
     
-    // Sort by confidence (descending)
-    results.sort((a, b) => b.confidence - a.confidence);
+    let results = uniqueTracks.filter(track => track.confidence >= adaptiveThreshold);
+    console.log(`After ${adaptiveThreshold}% confidence filter: ${results.length} tracks`);
     
-    // Return top 99 matches to show comprehensive results
+    // Sort by confidence, then by priority
+    results.sort((a, b) => {
+      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+      if (a.priority === 'high' && b.priority !== 'high') return -1;
+      if (b.priority === 'high' && a.priority !== 'high') return 1;
+      return 0;
+    });
+    
+    // Return top 99 matches
     const topMatches = results.slice(0, 99);
-    
-    console.log(`Returning ${topMatches.length} matches (filtered below 40% confidence)`);
+    console.log(`Returning ${topMatches.length} matches`);
     
     return topMatches;
   } catch (error) {
