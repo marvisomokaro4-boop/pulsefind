@@ -36,8 +36,8 @@ const About = () => {
       answer: "Visit our Pricing page to view our subscription plans. Pro tier offers unlimited uploads & scans, full deep scan analysis, auto alerts, full results, and downloadable match reports for £4.99/month."
     },
     {
-      question: "What happens to the first 50 signups?",
-      answer: "The first 50 users to sign up receive Pro tier access completely free for 3 months! This includes unlimited uploads & scans, full deep scan, auto alerts, downloadable reports, and full scan history."
+      question: "What happens to the first 100 signups?",
+      answer: "The first 100 users to sign up receive Pro tier access completely free for 3 months! This includes unlimited uploads & scans, full deep scan, auto alerts, downloadable reports, and full scan history."
     },
     {
       question: "Can I report missing links or incorrect matches?",
@@ -189,7 +189,7 @@ const About = () => {
           </CardHeader>
           <CardContent>
             <p className="text-foreground mb-4">
-              <strong>First 50 signups get Pro tier FREE for 3 months!</strong> Get unlimited uploads & scans, full deep scan, auto alerts, downloadable reports, and full scan history.
+              <strong>First 100 signups get Pro tier FREE for 3 months!</strong> Get unlimited uploads & scans, full deep scan, auto alerts, downloadable reports, and full scan history.
             </p>
             <Button 
               onClick={() => window.location.href = '/auth'}
