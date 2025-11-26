@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Palette } from "lucide-react";
 
 const Settings = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -99,6 +101,22 @@ const Settings = () => {
             <Button onClick={handlePasswordChange} disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update Password
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Logo Customization</CardTitle>
+            <CardDescription>Personalize your logo design</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={() => navigate('/logo-picker')}
+              className="w-full sm:w-auto"
+            >
+              <Palette className="mr-2 h-4 w-4" />
+              Customize Logo
             </Button>
           </CardContent>
         </Card>

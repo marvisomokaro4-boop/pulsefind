@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Check } from "lucide-react";
-import { Navigation } from "@/components/Navigation";
 
 export default function LogoPicker() {
   const [logos, setLogos] = useState<string[]>([]);
@@ -60,8 +59,6 @@ export default function LogoPicker() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation />
-      
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
