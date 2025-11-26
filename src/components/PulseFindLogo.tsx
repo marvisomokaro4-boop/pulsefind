@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import logoImage from "@/assets/pulsefind-logo.png";
 
 interface PulseFindLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
@@ -13,9 +14,6 @@ export const PulseFindLogo = ({
   showText = true,
   className 
 }: PulseFindLogoProps) => {
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
   const sizeMap = {
     sm: { width: "32px", height: "32px", text: "text-base" },
     md: { width: "40px", height: "40px", text: "text-xl" },
@@ -24,49 +22,6 @@ export const PulseFindLogo = ({
   };
 
   const sizes = sizeMap[size];
-
-  // Check for selected logo on mount
-  useEffect(() => {
-    const loadLogo = async () => {
-      try {
-        // Try to get from database first
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('logo_url')
-            .eq('id', user.id)
-            .single();
-          
-          if (profile?.logo_url) {
-            setLogoUrl(profile.logo_url);
-            // Cache it locally
-            localStorage.setItem('pulsefind-logo-selected', profile.logo_url);
-            setIsLoading(false);
-            return;
-          }
-        }
-        
-        // Fallback to localStorage if database doesn't have it
-        const cachedLogo = localStorage.getItem('pulsefind-logo-selected');
-        if (cachedLogo) {
-          setLogoUrl(cachedLogo);
-        }
-      } catch (error) {
-        console.error('Error loading logo:', error);
-        // Fallback to localStorage on error
-        const cachedLogo = localStorage.getItem('pulsefind-logo-selected');
-        if (cachedLogo) {
-          setLogoUrl(cachedLogo);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadLogo();
-  }, []);
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
@@ -98,45 +53,11 @@ export const PulseFindLogo = ({
             height: sizes.height 
           }}
         >
-          {isLoading ? (
-            <div className="w-full h-full animate-pulse bg-primary/20" />
-          ) : logoUrl ? (
-            <img 
-              src={logoUrl} 
-              alt="PulseFind Logo" 
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <svg 
-              viewBox="0 0 100 100" 
-              className="w-full h-full p-2"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Letter P */}
-              <path
-                d="M 25 20 L 25 80 M 25 20 L 55 20 Q 70 20 70 35 Q 70 50 55 50 L 25 50"
-                stroke="currentColor"
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-primary-foreground"
-                fill="none"
-              />
-              {/* Pulse waveform */}
-              <path
-                d="M 15 50 L 25 50 L 30 35 L 35 65 L 40 45 L 45 55 L 50 50 L 75 50 L 80 35 L 85 50"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-primary-foreground opacity-90"
-                fill="none"
-                style={{
-                  filter: "drop-shadow(0 0 4px currentColor)"
-                }}
-              />
-            </svg>
-          )}
+          <img 
+            src={logoImage} 
+            alt="PulseFind Logo" 
+            className="w-full h-full object-contain p-1"
+          />
         </div>
       </div>
 
