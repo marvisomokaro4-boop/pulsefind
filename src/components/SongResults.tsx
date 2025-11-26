@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Music, ExternalLink, Shield, Play, X, Flag, Lock } from "lucide-react";
+import { Music, ExternalLink, Shield, Play, X, Flag, Lock, Download, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,6 +53,7 @@ interface SongResultsProps {
 const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const [minConfidence, setMinConfidence] = useState(50);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { plan } = useSubscription();
@@ -155,6 +156,68 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
   
   const hasMoreResults = isFree && filteredMatches.length > FREE_TIER_LIMIT;
 
+  const handleGenerateEvidencePackage = async () => {
+    if (filteredMatches.length === 0) {
+      toast({
+        title: "No matches",
+        description: "No matches available to generate evidence package",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingPDF(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const response = await supabase.functions.invoke('generate-evidence-package', {
+        body: {
+          beatName: matches[0]?.title || 'Unknown Beat',
+          matches: filteredMatches.map(m => ({
+            song_title: m.title,
+            artist: m.artist,
+            album: m.album,
+            confidence: m.confidence || 0,
+            spotify_url: m.spotify_url,
+            apple_music_url: m.apple_music_url,
+            youtube_url: m.youtube_url,
+            popularity: m.popularity,
+            segment: m.segment,
+          })),
+          producerName: user?.email?.split('@')[0] || 'Unknown Producer',
+        },
+      });
+
+      if (response.error) throw response.error;
+
+      // The response.data is already an ArrayBuffer from the edge function
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `evidence-package-${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "Evidence package downloaded successfully",
+      });
+    } catch (error) {
+      console.error('Error generating evidence package:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate evidence package. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Debug Mode Banner */}
@@ -184,11 +247,31 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
         </Card>
       )}
       
-      <div className="text-center px-4">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your {searchMode === 'beat' ? 'Beat' : 'Producer Tag'}</h2>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Found {filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''} ({highConfidenceMatches.length} high-confidence)
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4">
+        <div className="text-center sm:text-left">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your {searchMode === 'beat' ? 'Beat' : 'Producer Tag'}</h2>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Found {filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''} ({highConfidenceMatches.length} high-confidence)
+          </p>
+        </div>
+        <Button
+          onClick={handleGenerateEvidencePackage}
+          disabled={isGeneratingPDF || filteredMatches.length === 0}
+          className="gap-2 shrink-0"
+          size="lg"
+        >
+          {isGeneratingPDF ? (
+            <>
+              <FileText className="h-5 w-5 animate-pulse" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Download className="h-5 w-5" />
+              Evidence Package
+            </>
+          )}
+        </Button>
       </div>
 
       <ConfidenceSlider
