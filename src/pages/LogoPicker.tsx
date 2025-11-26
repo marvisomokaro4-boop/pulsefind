@@ -39,22 +39,44 @@ export default function LogoPicker() {
     }
   };
 
-  const selectLogo = (logoUrl: string) => {
+  const selectLogo = async (logoUrl: string) => {
     setSelectedLogo(logoUrl);
-    // Save to localStorage with version
-    localStorage.setItem('pulsefind-logo-selected', logoUrl);
-    localStorage.setItem('pulsefind-logo-version', 'selected-v1');
     
-    toast({
-      title: "Logo selected!",
-      description: "Your new logo will appear throughout the app.",
-    });
-    
-    // Navigate back to home after 1 second
-    setTimeout(() => {
-      navigate('/');
-      window.location.reload(); // Reload to show new logo
-    }, 1000);
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Save to database
+        const { error } = await supabase
+          .from('profiles')
+          .update({ logo_url: logoUrl })
+          .eq('id', user.id);
+        
+        if (error) throw error;
+      }
+      
+      // Also save to localStorage as cache
+      localStorage.setItem('pulsefind-logo-selected', logoUrl);
+      
+      toast({
+        title: "Logo selected!",
+        description: "Your new logo will appear throughout the app on all devices.",
+      });
+      
+      // Navigate back to home after 1 second
+      setTimeout(() => {
+        navigate('/');
+        window.location.reload(); // Reload to show new logo
+      }, 1000);
+    } catch (error) {
+      console.error('Error saving logo:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save logo. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PulseFindLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
@@ -13,6 +14,7 @@ export const PulseFindLogo = ({
   className 
 }: PulseFindLogoProps) => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const sizeMap = {
     sm: { width: "32px", height: "32px", text: "text-base" },
@@ -25,10 +27,45 @@ export const PulseFindLogo = ({
 
   // Check for selected logo on mount
   useEffect(() => {
-    const selectedLogo = localStorage.getItem('pulsefind-logo-selected');
-    if (selectedLogo) {
-      setLogoUrl(selectedLogo);
-    }
+    const loadLogo = async () => {
+      try {
+        // Try to get from database first
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('logo_url')
+            .eq('id', user.id)
+            .single();
+          
+          if (profile?.logo_url) {
+            setLogoUrl(profile.logo_url);
+            // Cache it locally
+            localStorage.setItem('pulsefind-logo-selected', profile.logo_url);
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Fallback to localStorage if database doesn't have it
+        const cachedLogo = localStorage.getItem('pulsefind-logo-selected');
+        if (cachedLogo) {
+          setLogoUrl(cachedLogo);
+        }
+      } catch (error) {
+        console.error('Error loading logo:', error);
+        // Fallback to localStorage on error
+        const cachedLogo = localStorage.getItem('pulsefind-logo-selected');
+        if (cachedLogo) {
+          setLogoUrl(cachedLogo);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadLogo();
   }, []);
 
   return (
@@ -61,7 +98,9 @@ export const PulseFindLogo = ({
             height: sizes.height 
           }}
         >
-          {logoUrl ? (
+          {isLoading ? (
+            <div className="w-full h-full animate-pulse bg-primary/20" />
+          ) : logoUrl ? (
             <img 
               src={logoUrl} 
               alt="PulseFind Logo" 
