@@ -178,62 +178,59 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    // Check upload limit for free tier
-    if (checkUploadLimit && !checkUploadLimit()) {
-      return;
-    }
-
     const filesArray = Array.from(files);
 
-    // Check scan limits
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Authentication Required",
-          description: "Please log in to scan beats.",
-          variant: "destructive",
-        });
-        navigate('/auth');
+    // For anonymous users or when checkUploadLimit is not provided, allow scan
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      // Anonymous scan - no limit check needed, handled by backend
+      console.log('Anonymous scan initiated');
+    } else {
+      // Check upload limit for authenticated free tier users
+      if (checkUploadLimit && !checkUploadLimit()) {
         return;
       }
 
-      // Get today's usage
-      const { data: usageData } = await supabase.rpc('get_scan_usage', {
-        _user_id: user.id
-      });
-
-      if (usageData && usageData.length > 0) {
-        const { scan_count, scans_per_day } = usageData[0];
-        
-        // Check if unlimited (Pro tier)
-        if (scans_per_day !== -1 && scan_count >= scans_per_day) {
-          toast({
-            title: "Daily Limit Reached",
-            description: `You've used all ${scans_per_day} scans today. Upgrade for more scans!`,
-            variant: "destructive",
-          });
-          navigate('/pricing');
-          return;
-        }
-
-        // Increment scan count
-        const { data: canScan } = await supabase.rpc('increment_scan_count', {
+      // Check scan limits for authenticated users
+      try {
+        // Get today's usage
+        const { data: usageData } = await supabase.rpc('get_scan_usage', {
           _user_id: user.id
         });
 
-        if (!canScan) {
-          toast({
-            title: "Daily Limit Reached",
-            description: "You've reached your daily scan limit. Upgrade to continue!",
-            variant: "destructive",
+        if (usageData && usageData.length > 0) {
+          const { scan_count, scans_per_day } = usageData[0];
+          
+          // Check if unlimited (Pro tier)
+          if (scans_per_day !== -1 && scan_count >= scans_per_day) {
+            toast({
+              title: "Daily Limit Reached",
+              description: `You've used all ${scans_per_day} scans today. Upgrade for more scans!`,
+              variant: "destructive",
+            });
+            navigate('/pricing');
+            return;
+          }
+
+          // Increment scan count
+          const { data: canScan } = await supabase.rpc('increment_scan_count', {
+            _user_id: user.id
           });
-          navigate('/pricing');
-          return;
+
+          if (!canScan) {
+            toast({
+              title: "Daily Limit Reached",
+              description: "You've reached your daily scan limit. Upgrade to continue!",
+              variant: "destructive",
+            });
+            navigate('/pricing');
+            return;
+          }
         }
+      } catch (error) {
+        console.error('Error checking scan limits:', error);
       }
-    } catch (error) {
-      console.error('Error checking scan limits:', error);
     }
 
     // Validate file types - check extension first (more reliable on mobile)

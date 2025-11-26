@@ -16,6 +16,7 @@ import { PulseFindLogo } from "@/components/PulseFindLogo";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { PromoCounter } from "@/components/PromoCounter";
+import { AnonymousScanBanner } from "@/components/AnonymousScanBanner";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
@@ -64,6 +65,7 @@ const Index = () => {
   const [debugMode, setDebugMode] = useState(false);
   const [disableDeduplication, setDisableDeduplication] = useState(false);
   const [searchMode, setSearchMode] = useState<'beat' | 'producer-tag'>('beat');
+  const [isAnonymousScan, setIsAnonymousScan] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { plan, scansPerDay, isLoading } = useSubscription();
@@ -146,10 +148,11 @@ const Index = () => {
     return true;
   };
 
-  const handleMatchesFound = (foundMatches: Match[]) => {
+  const handleMatchesFound = (foundMatches: Match[], isAnonymous = false) => {
     setMatches(foundMatches);
     setBatchResults([]);
     setHasSearched(true);
+    setIsAnonymousScan(isAnonymous);
     if (user) {
       checkMonthlyUploads(user.id);
     }
@@ -345,7 +348,8 @@ const Index = () => {
 
       {/* Results Section */}
       {hasSearched && (
-        <section className="container mx-auto px-4 pb-16">
+        <section className="container mx-auto px-4 pb-16 space-y-6">
+          {isAnonymousScan && matches.length > 0 && <AnonymousScanBanner />}
           {matches.length > 0 && <SongResults matches={matches} debugMode={debugMode} searchMode={searchMode} />}
           {batchResults.length > 0 && <BatchResults results={batchResults} />}
         </section>
