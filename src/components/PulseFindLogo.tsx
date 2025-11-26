@@ -41,7 +41,7 @@ export const PulseFindLogo = ({
           <img 
             src={logoImage} 
             alt="PulseFind Logo" 
-            className="w-full h-full object-contain p-1"
+            className="w-full h-full object-contain p-0.5"
           />
         </div>
       </div>
