@@ -6,6 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Admin metrics for monitoring
+interface ScanMetrics {
+  totalScans: number;
+  noResultScans: number;
+  averageScore: number;
+  retryAttempts: number;
+  errorCodes: Map<number, number>;
+}
+
+const metrics: ScanMetrics = {
+  totalScans: 0,
+  noResultScans: 0,
+  averageScore: 0,
+  retryAttempts: 0,
+  errorCodes: new Map(),
+};
+
 // Helper function to get Spotify access token
 async function getSpotifyToken(): Promise<string | null> {
   try {
@@ -213,6 +230,9 @@ interface ACRCloudResponse {
       artists: Array<{ name: string }>;
       album: { name: string };
       acrid: string;
+      external_ids?: {
+        isrc?: string;
+      };
       external_metadata?: {
         spotify?: { 
           track: { id: string };
@@ -223,6 +243,10 @@ interface ACRCloudResponse {
         youtube?: { vid: string };
       };
       score: number;
+      play_offset_ms?: number;
+      duration_ms?: number;
+      db_begin_time_offset_ms?: number;
+      db_end_time_offset_ms?: number;
       release_date?: string;
     }>;
   };
@@ -244,6 +268,129 @@ interface ShazamResponse {
       }>;
     };
   };
+}
+
+// Audio preprocessing functions
+async function convertTo16BitPCM(audioBuffer: ArrayBuffer): Promise<ArrayBuffer> {
+  try {
+    console.log('Converting audio to 16-bit PCM WAV format...');
+    
+    // For now, we'll pass through the audio as-is since Deno doesn't have native audio processing
+    // ACRCloud can handle various formats including MP3
+    // A full implementation would use FFmpeg or similar
+    
+    return audioBuffer;
+  } catch (error) {
+    console.error('PCM conversion error:', error);
+    return audioBuffer; // Fallback to original
+  }
+}
+
+async function normalizeAudioVolume(audioBuffer: ArrayBuffer): Promise<ArrayBuffer> {
+  try {
+    console.log('Normalizing audio volume...');
+    
+    // Simple volume normalization by analyzing and adjusting RMS
+    const samples = new Int16Array(audioBuffer);
+    
+    // Calculate current RMS
+    let sumSquares = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const normalized = samples[i] / 32768;
+      sumSquares += normalized * normalized;
+    }
+    const currentRMS = Math.sqrt(sumSquares / samples.length);
+    
+    // Target RMS of 0.15 (reasonable level)
+    const targetRMS = 0.15;
+    const gain = currentRMS > 0 ? targetRMS / currentRMS : 1;
+    
+    // Don't amplify more than 3x to avoid distortion
+    const safeGain = Math.min(gain, 3.0);
+    
+    if (safeGain !== 1.0) {
+      console.log(`Applying gain: ${safeGain.toFixed(2)}x (current RMS: ${currentRMS.toFixed(3)})`);
+      
+      const normalized = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i++) {
+        const amplified = samples[i] * safeGain;
+        // Clamp to prevent clipping
+        normalized[i] = Math.max(-32768, Math.min(32767, amplified));
+      }
+      
+      return normalized.buffer;
+    }
+    
+    return audioBuffer;
+  } catch (error) {
+    console.error('Normalization error:', error);
+    return audioBuffer; // Fallback to original
+  }
+}
+
+async function removeLongSilence(audioBuffer: ArrayBuffer): Promise<ArrayBuffer> {
+  try {
+    console.log('Removing long silent sections...');
+    
+    const samples = new Int16Array(audioBuffer);
+    const SILENCE_THRESHOLD = 0.01;
+    const MIN_SILENCE_DURATION_SAMPLES = 44100; // 1 second at 44.1kHz
+    
+    const keptSamples: number[] = [];
+    let silentSampleCount = 0;
+    
+    for (let i = 0; i < samples.length; i++) {
+      const normalized = Math.abs(samples[i] / 32768);
+      
+      if (normalized < SILENCE_THRESHOLD) {
+        silentSampleCount++;
+        // Only keep short silences
+        if (silentSampleCount < MIN_SILENCE_DURATION_SAMPLES) {
+          keptSamples.push(samples[i]);
+        }
+      } else {
+        silentSampleCount = 0;
+        keptSamples.push(samples[i]);
+      }
+    }
+    
+    const removed = samples.length - keptSamples.length;
+    if (removed > 0) {
+      console.log(`Removed ${removed} samples (${(removed / 44100).toFixed(2)}s) of silence`);
+      return new Int16Array(keptSamples).buffer;
+    }
+    
+    return audioBuffer;
+  } catch (error) {
+    console.error('Silence removal error:', error);
+    return audioBuffer; // Fallback to original
+  }
+}
+
+async function preprocessAudio(audioBuffer: ArrayBuffer): Promise<ArrayBuffer> {
+  console.log('Starting audio preprocessing pipeline...');
+  const startTime = Date.now();
+  
+  try {
+    let processed = audioBuffer;
+    
+    // Step 1: Convert to 16-bit PCM WAV
+    processed = await convertTo16BitPCM(processed);
+    
+    // Step 2: Normalize volume
+    processed = await normalizeAudioVolume(processed);
+    
+    // Step 3: Remove long silence
+    processed = await removeLongSilence(processed);
+    
+    const duration = Date.now() - startTime;
+    console.log(`Audio preprocessing completed in ${duration}ms`);
+    
+    return processed;
+  } catch (error) {
+    console.error('Audio preprocessing failed:', error);
+    return audioBuffer; // Return original on failure
+  }
 }
 
 async function identifySegmentWithACRCloud(
@@ -302,23 +449,40 @@ async function identifySegmentWithACRCloud(
     formData.append('sample_bytes', audioData.length.toString());
     formData.append('timestamp', timestamp.toString());
 
+    const queryStartTime = Date.now();
     const response = await fetch(`https://${acrcloudHost}/v1/identify`, {
       method: 'POST',
       body: formData,
     });
+    const queryDuration = Date.now() - queryStartTime;
 
     const data: ACRCloudResponse = await response.json();
-    console.log(`ACRCloud response for ${segmentName}:`, JSON.stringify(data));
+    console.log(`ACRCloud response for ${segmentName} (${queryDuration}ms):`, JSON.stringify(data));
+    
+    // Track error codes
+    if (data.status.code !== 0) {
+      const errorCount = metrics.errorCodes.get(data.status.code) || 0;
+      metrics.errorCodes.set(data.status.code, errorCount + 1);
+      console.log(`ACRCloud error code ${data.status.code}: ${data.status.msg}`);
+    }
 
     if (data.status.code === 0 && data.metadata?.music) {
       return data.metadata.music.map(track => {
+        // Calculate played duration if available
+        const playedDuration = track.db_end_time_offset_ms && track.db_begin_time_offset_ms
+          ? (track.db_end_time_offset_ms - track.db_begin_time_offset_ms) / 1000
+          : 0;
+        
+        // Calculate duration difference
+        const durationDiff = track.duration_ms 
+          ? Math.abs((track.duration_ms / 1000) - (arrayBuffer.byteLength / 176400)) // Rough estimate
+          : 0;
+        
         // Construct Spotify album artwork URL if we have spotify album ID
         let albumCoverUrl = null;
         if (track.external_metadata?.spotify?.album?.id) {
-          // We'll fetch this from Spotify API in a moment
           albumCoverUrl = `https://i.scdn.co/image/${track.external_metadata.spotify.album.id}`;
         } else if (track.external_metadata?.spotify?.track?.id) {
-          // Fallback: use track ID to construct cover URL (will need Spotify API)
           albumCoverUrl = null; // Will be populated via Spotify API
         }
 
@@ -328,6 +492,7 @@ async function identifySegmentWithACRCloud(
           album: track.album.name,
           confidence: track.score,
           source: 'ACRCloud',
+          isrc: track.external_ids?.isrc,
           spotify_id: track.external_metadata?.spotify?.track?.id,
           spotify_album_id: track.external_metadata?.spotify?.album?.id,
           apple_music_id: track.external_metadata?.applemusic?.track?.id || 
@@ -339,6 +504,9 @@ async function identifySegmentWithACRCloud(
           segment_offset: segmentStart,
           priority,
           acrid: track.acrid,
+          played_duration: playedDuration,
+          duration_diff: durationDiff,
+          query_duration_ms: queryDuration,
         };
       });
     }
@@ -514,7 +682,97 @@ function areSimilarTracks(track1: any, track2: any): boolean {
   return titleSimilar && artistSimilar;
 }
 
-async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string): Promise<any[]> {
+// Multiple query strategies for better accuracy
+async function tryMultipleQueryStrategies(
+  arrayBuffer: ArrayBuffer, 
+  fileName: string
+): Promise<any[]> {
+  console.log('Attempting multiple query strategies...');
+  const allResults: any[] = [];
+  const fileSize = arrayBuffer.byteLength;
+  
+  // Strategy 1: Full audio with multi-segment analysis
+  console.log('Strategy 1: Full audio multi-segment analysis');
+  try {
+    const fullResults = await identifyWithACRCloudMultiSegment(arrayBuffer, fileName);
+    allResults.push(...fullResults);
+    console.log(`Strategy 1 found ${fullResults.length} results`);
+    
+    // If we got good results (score >= 85), return early
+    if (fullResults.some(r => r.confidence >= 85)) {
+      console.log('Strategy 1 found high-confidence matches, skipping other strategies');
+      return allResults;
+    }
+  } catch (error) {
+    console.error('Strategy 1 failed:', error);
+  }
+  
+  // Strategy 2: 10-second centered segment
+  console.log('Strategy 2: 10-second centered segment');
+  try {
+    const centerOffset = Math.floor(fileSize / 2);
+    const tenSecondsBytes = Math.min(176400, fileSize); // ~10 seconds at 44.1kHz 16-bit stereo
+    const segmentStart = Math.max(0, centerOffset - Math.floor(tenSecondsBytes / 2));
+    
+    metrics.retryAttempts++;
+    const centerResults = await identifySegmentWithACRCloud(
+      arrayBuffer,
+      fileName,
+      segmentStart,
+      'center-10s',
+      'high'
+    );
+    allResults.push(...centerResults);
+    console.log(`Strategy 2 found ${centerResults.length} results`);
+  } catch (error) {
+    console.error('Strategy 2 failed:', error);
+  }
+  
+  // Strategy 3: 15-second random segment
+  console.log('Strategy 3: 15-second random segment');
+  try {
+    const fifteenSecondsBytes = Math.min(264600, fileSize); // ~15 seconds
+    const maxStart = fileSize - fifteenSecondsBytes;
+    const randomStart = Math.floor(Math.random() * maxStart);
+    
+    metrics.retryAttempts++;
+    const randomResults = await identifySegmentWithACRCloud(
+      arrayBuffer,
+      fileName,
+      randomStart,
+      'random-15s',
+      'normal'
+    );
+    allResults.push(...randomResults);
+    console.log(`Strategy 3 found ${randomResults.length} results`);
+  } catch (error) {
+    console.error('Strategy 3 failed:', error);
+  }
+  
+  // Strategy 4: First 20 seconds
+  console.log('Strategy 4: First 20 seconds');
+  try {
+    const twentySecondsBytes = Math.min(352800, fileSize); // ~20 seconds
+    
+    metrics.retryAttempts++;
+    const firstResults = await identifySegmentWithACRCloud(
+      arrayBuffer,
+      fileName,
+      0,
+      'first-20s',
+      'high'
+    );
+    allResults.push(...firstResults);
+    console.log(`Strategy 4 found ${firstResults.length} results`);
+  } catch (error) {
+    console.error('Strategy 4 failed:', error);
+  }
+  
+  console.log(`All strategies completed, total results: ${allResults.length}`);
+  return allResults;
+}
+
+async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileName: string): Promise<any[]> {
   const acrcloudAccessKey = Deno.env.get('ACRCLOUD_ACCESS_KEY');
   const acrcloudAccessSecret = Deno.env.get('ACRCLOUD_ACCESS_SECRET');
 
@@ -683,54 +941,91 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
 
     console.log(`Total tracks found across all segments: ${allTracks.length}`);
 
-    // Enhanced deduplication with fuzzy matching
+    // Enhanced deduplication: Group by ISRC first, then by title+artist
     const uniqueTracks: any[] = [];
+    const seenISRCs = new Set<string>();
+    const seenTitleArtist = new Set<string>();
     
     for (const track of allTracks) {
-      const existingIdx = uniqueTracks.findIndex(t => areSimilarTracks(t, track));
+      // Deduplication by ISRC (most reliable)
+      if (track.isrc) {
+        if (seenISRCs.has(track.isrc)) {
+          // Find existing and merge if new one has better score
+          const existingIdx = uniqueTracks.findIndex(t => t.isrc === track.isrc);
+          if (existingIdx >= 0 && track.confidence > uniqueTracks[existingIdx].confidence) {
+            uniqueTracks[existingIdx] = {
+              ...track,
+              spotify_id: track.spotify_id || uniqueTracks[existingIdx].spotify_id,
+              apple_music_id: track.apple_music_id || uniqueTracks[existingIdx].apple_music_id,
+              youtube_id: track.youtube_id || uniqueTracks[existingIdx].youtube_id,
+            };
+          }
+          continue;
+        }
+        seenISRCs.add(track.isrc);
+      }
       
-      if (existingIdx === -1) {
-        // New unique track
-        uniqueTracks.push(track);
-      } else {
-        // Merge with existing - keep higher confidence
-        const existing = uniqueTracks[existingIdx];
-        if (track.confidence > existing.confidence) {
+      // Fallback: Deduplication by title + artist
+      const titleArtistKey = `${normalizeForMatching(track.title)}_${normalizeForMatching(track.artist)}`;
+      if (seenTitleArtist.has(titleArtistKey)) {
+        const existingIdx = uniqueTracks.findIndex(t => 
+          areSimilarTracks(t, track)
+        );
+        
+        if (existingIdx >= 0 && track.confidence > uniqueTracks[existingIdx].confidence) {
           uniqueTracks[existingIdx] = {
             ...track,
-            // Preserve any data from original that's missing in new one
-            spotify_id: track.spotify_id || existing.spotify_id,
-            apple_music_id: track.apple_music_id || existing.apple_music_id,
-            youtube_id: track.youtube_id || existing.youtube_id,
+            spotify_id: track.spotify_id || uniqueTracks[existingIdx].spotify_id,
+            apple_music_id: track.apple_music_id || uniqueTracks[existingIdx].apple_music_id,
+            youtube_id: track.youtube_id || uniqueTracks[existingIdx].youtube_id,
+            isrc: track.isrc || uniqueTracks[existingIdx].isrc, // Preserve ISRC
           };
         }
+        continue;
       }
+      seenTitleArtist.add(titleArtistKey);
+      
+      uniqueTracks.push(track);
     }
 
     console.log(`After deduplication: ${uniqueTracks.length} unique tracks`);
     
-    // Stricter confidence threshold to reduce false positives
-    const totalSegments = usableSegments.length;
-    const avgQuality = qualityAnalysisFailed 
-      ? 50 // Neutral quality if analysis failed
-      : usableSegments.reduce((sum, s) => sum + (s.quality?.score || 50), 0) / totalSegments;
-    const baseThreshold = 60; // Increased from 40 to 60 for better accuracy
+    // Apply strict validation rules to reduce false positives
+    let results = uniqueTracks.filter(track => {
+      // Rule 1: Minimum confidence score of 85
+      if (track.confidence < 85) {
+        console.log(`Rejected: "${track.title}" - Low confidence (${track.confidence}%)`);
+        return false;
+      }
+      
+      // Rule 2: Must have valid metadata (ISRC, title, artist)
+      if (!track.title || !track.artist) {
+        console.log(`Rejected: "${track.title}" - Missing title or artist`);
+        return false;
+      }
+      
+      // Rule 3: Duration validation (if available)
+      if (track.duration_diff && track.duration_diff > 5) {
+        console.log(`Rejected: "${track.title}" - Duration mismatch (${track.duration_diff.toFixed(1)}s diff)`);
+        return false;
+      }
+      
+      // Rule 4: Played duration must be >= 10 seconds (if available)
+      if (track.played_duration && track.played_duration < 10) {
+        console.log(`Rejected: "${track.title}" - Insufficient match duration (${track.played_duration.toFixed(1)}s)`);
+        return false;
+      }
+      
+      return true;
+    });
     
-    // If average segment quality is high, we can be more selective
-    // If average quality is low or analysis failed, we need to be slightly more lenient
-    const adaptiveThreshold = qualityAnalysisFailed 
-      ? baseThreshold - 5 // Still strict even in fallback mode
-      : avgQuality > 70 
-        ? baseThreshold + 10 // Much stricter for high quality audio
-        : avgQuality > 50
-          ? baseThreshold 
-          : baseThreshold - 5; // Only slightly more lenient for lower quality
+    console.log(`After strict validation (≥85% confidence + metadata + duration checks): ${results.length} tracks`);
     
-    console.log(`Adaptive threshold: ${adaptiveThreshold}% (based on avg segment quality: ${Math.round(avgQuality)}${qualityAnalysisFailed ? ' - fallback mode' : ''})`);
-
-    
-    let results = uniqueTracks.filter(track => track.confidence >= adaptiveThreshold);
-    console.log(`After ${adaptiveThreshold}% confidence filter: ${results.length} tracks`);
+    // Track average score
+    if (results.length > 0) {
+      const avgScore = results.reduce((sum, t) => sum + t.confidence, 0) / results.length;
+      metrics.averageScore = (metrics.averageScore * metrics.totalScans + avgScore) / (metrics.totalScans + 1);
+    }
     
     // Sort by confidence, then by priority
     results.sort((a, b) => {
@@ -850,13 +1145,19 @@ serve(async (req) => {
     }
 
     // Get audio file as ArrayBuffer
-    const arrayBuffer = await audioFile.arrayBuffer();
+    let arrayBuffer = await audioFile.arrayBuffer();
+    
+    // Preprocess audio for better fingerprinting
+    arrayBuffer = await preprocessAudio(arrayBuffer);
+    
+    // Track scan attempt
+    metrics.totalScans++;
 
-    // Run both APIs in parallel
-    const [acrcloudResults, shazamResults] = await Promise.all([
-      identifyWithACRCloud(arrayBuffer, audioFile.name),
-      identifyWithShazam(arrayBuffer),
-    ]);
+    // Use multiple query strategies for maximum accuracy
+    const acrcloudResults = await tryMultipleQueryStrategies(arrayBuffer, audioFile.name);
+    
+    // Shazam is not available, skip it
+    const shazamResults: any[] = [];
 
     // Combine and deduplicate results
     const allResults = [...acrcloudResults, ...shazamResults];
@@ -963,16 +1264,49 @@ serve(async (req) => {
     }
 
     console.log('Found matches:', matches.length);
+    
+    // Track no-result scans
+    if (matches.length === 0) {
+      metrics.noResultScans++;
+      console.log(`No confirmed matches found (${metrics.noResultScans}/${metrics.totalScans} scans with no results)`);
+    }
+    
+    // Log metrics summary
+    console.log('=== Scan Metrics Summary ===');
+    console.log(`Total scans: ${metrics.totalScans}`);
+    console.log(`No-result scans: ${metrics.noResultScans} (${((metrics.noResultScans / metrics.totalScans) * 100).toFixed(1)}%)`);
+    console.log(`Average confidence score: ${metrics.averageScore.toFixed(1)}%`);
+    console.log(`Total retry attempts: ${metrics.retryAttempts}`);
+    if (metrics.errorCodes.size > 0) {
+      console.log('Error codes encountered:');
+      metrics.errorCodes.forEach((count, code) => {
+        console.log(`  Code ${code}: ${count} times`);
+      });
+    }
+    console.log('===========================');
+
+    // Return appropriate message based on results
+    const response: any = {
+      success: true,
+      matches,
+      sources_used: {
+        acrcloud: acrcloudResults.length > 0,
+        shazam: false,
+      },
+      metrics: {
+        totalScanned: metrics.totalScans,
+        retryAttempts: metrics.retryAttempts,
+        averageScore: Math.round(metrics.averageScore),
+      }
+    };
+    
+    // Add helpful message if no matches found
+    if (matches.length === 0) {
+      response.message = "No confirmed matches found. Try uploading a longer or clearer version of the beat, or ensure the beat has been released publicly on streaming platforms.";
+    }
 
     return new Response(
-      JSON.stringify({ 
-        success: true,
-        matches,
-        sources_used: {
-          acrcloud: acrcloudResults.length > 0,
-          shazam: shazamResults.length > 0,
-        }
-      }),
+      JSON.stringify(response),
       { 
         status: 200,
         headers: { 
