@@ -33,6 +33,9 @@ interface Match {
   album_cover_url?: string;
   preview_url?: string;
   popularity?: number;
+  is_ai_suggestion?: boolean;
+  ai_confidence?: 'high' | 'medium' | 'low';
+  ai_reasoning?: string;
 }
 
 interface BeatResult {
