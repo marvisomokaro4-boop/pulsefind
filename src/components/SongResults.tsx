@@ -346,7 +346,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
               <div className="absolute top-4 right-4 flex gap-2 flex-wrap justify-end">
                 <Badge
                   variant="secondary" 
-                  className={`backdrop-blur-md shadow-md ${
+                  className={`backdrop-blur-md shadow-md text-white ${
                     match.preview_url 
                       ? 'bg-primary/30 border-primary/40' 
                       : 'bg-muted/80 border-muted'
@@ -366,9 +366,9 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 </Badge>
                 <Badge 
                   variant="secondary" 
-                  className={`backdrop-blur-md shadow-md ${
+                  className={`backdrop-blur-md shadow-md text-white ${
                     match.cached 
-                      ? 'bg-green-500/30 border-green-500/40 text-green-700 dark:text-green-300' 
+                      ? 'bg-green-500/30 border-green-500/40' 
                       : 'bg-background/90'
                   }`}
                 >
@@ -384,7 +384,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 {match.confidence && (
                   <Badge 
                     variant="secondary" 
-                    className={`backdrop-blur-md shadow-md ${
+                    className={`backdrop-blur-md shadow-md text-white ${
                       match.confidence >= 70 
                         ? 'bg-primary/30 border-primary/40' 
                         : 'bg-muted/80'
@@ -397,7 +397,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 {match.segment && (
                   <Badge 
                     variant="secondary" 
-                    className="backdrop-blur-md shadow-md bg-blue-500/30 border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs"
+                    className="backdrop-blur-md shadow-md bg-blue-500/30 border-blue-500/40 text-white text-xs"
                   >
                     📍 {match.segment}
                   </Badge>
@@ -405,13 +405,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 {match.match_quality && (
                   <Badge 
                     variant="secondary"
-                    className={`backdrop-blur-md shadow-md text-xs ${
-                      match.match_quality === 'high' 
-                        ? 'bg-green-500/30 border-green-500/40 text-green-700 dark:text-green-300' 
-                        : match.match_quality === 'medium'
-                        ? 'bg-yellow-500/30 border-yellow-500/40 text-yellow-700 dark:text-yellow-300'
-                        : 'bg-orange-500/30 border-orange-500/40 text-orange-700 dark:text-orange-300'
-                    }`}
+                    className="backdrop-blur-md shadow-md text-white text-xs bg-green-500/30 border-green-500/40"
                   >
                     {match.match_quality === 'high' ? '🎯 High Match' : 
                      match.match_quality === 'medium' ? '⚡ Medium Match' : 
@@ -421,7 +415,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 {match.popularity !== undefined && match.popularity !== null && (
                   <Badge 
                     variant="secondary" 
-                    className="backdrop-blur-md shadow-md bg-accent/30 border-accent/40"
+                    className="backdrop-blur-md shadow-md bg-accent/30 border-accent/40 text-white"
                   >
                     🔥 {match.popularity}/100
                   </Badge>
@@ -431,7 +425,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 {match.sources && match.sources.length > 1 && (
                   <Badge 
                     variant="secondary" 
-                    className="backdrop-blur-md shadow-md bg-purple-500/30 border-purple-500/40 text-purple-700 dark:text-purple-300 text-xs"
+                    className="backdrop-blur-md shadow-md bg-purple-500/30 border-purple-500/40 text-white text-xs"
                   >
                     🔗 {match.sources.length} Sources
                   </Badge>
@@ -439,17 +433,17 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 
                 <div className="flex gap-1">
                   {match.spotify_id && (
-                    <Badge variant="secondary" className="bg-[#1DB954]/30 backdrop-blur-md shadow-md border-[#1DB954]/40 text-xs">
+                    <Badge variant="secondary" className="bg-[#1DB954]/30 backdrop-blur-md shadow-md border-[#1DB954]/40 text-white text-xs">
                       Spotify
                     </Badge>
                   )}
                   {match.apple_music_id && (
-                    <Badge variant="secondary" className="bg-[#FA243C]/30 backdrop-blur-md shadow-md border-[#FA243C]/40 text-xs">
+                    <Badge variant="secondary" className="bg-[#FA243C]/30 backdrop-blur-md shadow-md border-[#FA243C]/40 text-white text-xs">
                       Apple
                     </Badge>
                   )}
                   {match.youtube_id && (
-                    <Badge variant="secondary" className="bg-[#FF0000]/30 backdrop-blur-md shadow-md border-[#FF0000]/40 text-xs">
+                    <Badge variant="secondary" className="bg-[#FF0000]/30 backdrop-blur-md shadow-md border-[#FF0000]/40 text-white text-xs">
                       YouTube
                     </Badge>
                   )}
