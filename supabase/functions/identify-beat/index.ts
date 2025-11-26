@@ -433,9 +433,9 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
   const meanEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
   const energyVariance = energies.reduce((sum, e) => sum + Math.pow(e - meanEnergy, 2), 0) / energies.length;
   
-  // Quality scoring - only detect silence, no noise filtering for beats/producer tags
-  const SILENCE_THRESHOLD = 0.005;
-  const MIN_PEAK_THRESHOLD = 0.05;
+  // Quality scoring - only detect silence, very lenient for beats/producer tags
+  const SILENCE_THRESHOLD = 0.003; // More lenient
+  const MIN_PEAK_THRESHOLD = 0.03; // More lenient
   const LOW_VARIANCE_THRESHOLD = 0.0001;
   
   const isSilent = rms < SILENCE_THRESHOLD || peakLevel < MIN_PEAK_THRESHOLD;
@@ -462,8 +462,8 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
     score += varianceScore;
   }
   
-  // Only filter out silent segments, all other audio is valid
-  const isUsable = !isSilent && score >= 20;
+  // Only filter out silent segments, very low score threshold
+  const isUsable = !isSilent && score >= 10;
   
     return {
       score: Math.round(score),
@@ -525,10 +525,10 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
 
   try {
     const fileSize = arrayBuffer.byteLength;
-    const segmentSize = 500 * 1024; // 500KB per segment
-    const overlapSize = 250 * 1024; // 250KB overlap
+    const segmentSize = 400 * 1024; // 400KB per segment for more granular analysis
+    const overlapSize = 300 * 1024; // 300KB overlap (75% overlap for maximum coverage)
     
-    console.log(`Analyzing entire beat: ${fileSize} bytes with audio quality analysis`);
+    console.log(`Analyzing entire beat: ${fileSize} bytes with enhanced multi-segment analysis`);
     
     // Calculate all segment positions with quality analysis
     const segmentPositions: Array<{ 
@@ -641,8 +641,8 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
       .filter(s => s.priority === 'normal')
       .sort((a, b) => (b.quality?.score || 0) - (a.quality?.score || 0));
     
-    // Process in batches to manage memory
-    const batchSize = 5;
+    // Process in batches to manage memory - increased for faster processing
+    const batchSize = 8;
     const allTracks: any[] = [];
     
     // Process high priority first
