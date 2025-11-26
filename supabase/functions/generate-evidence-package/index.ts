@@ -137,7 +137,7 @@ serve(async (req) => {
     const graphWidth = pageWidth - 40;
     const graphHeight = 40;
     const barWidth = Math.min(graphWidth / matches.length, 15);
-    const maxConfidence = Math.max(...matches.map(m => m.confidence));
+    const maxConfidence = Math.max(...matches.map((m: Match) => m.confidence));
 
     // Draw graph background
     doc.setFillColor(245, 245, 245);
