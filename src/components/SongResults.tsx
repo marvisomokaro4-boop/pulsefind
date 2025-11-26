@@ -281,8 +281,8 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
       
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4">
         <div className="text-center sm:text-left">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your {searchMode === 'beat' ? 'Beat' : 'Producer Tag'}</h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-white">Songs Using Your {searchMode === 'beat' ? 'Beat' : 'Producer Tag'}</h2>
+          <p className="text-sm sm:text-base text-white/90">
             Found {filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''} ({highConfidenceMatches.length} high-confidence)
           </p>
         </div>
