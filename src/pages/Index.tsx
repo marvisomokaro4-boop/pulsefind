@@ -15,6 +15,7 @@ import { LandingCTA } from "@/components/LandingCTA";
 import { PulseFindLogo } from "@/components/PulseFindLogo";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { WelcomeModal } from "@/components/WelcomeModal";
+import { PromoCounter } from "@/components/PromoCounter";
 
 interface Match {
   title: string;
@@ -161,6 +162,14 @@ const Index = () => {
     return (
       <main className="min-h-screen bg-background">
         <LandingHero />
+        
+        {/* Promotional Counter */}
+        <section className="container mx-auto px-4 -mt-8 mb-8 relative z-10">
+          <div className="max-w-2xl mx-auto">
+            <PromoCounter />
+          </div>
+        </section>
+
         <LandingFeatures />
         <LandingCTA />
       </main>
