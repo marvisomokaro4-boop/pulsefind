@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
-import { Upload, Check, Music } from "lucide-react";
+import { Upload, Check, Music, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -65,6 +66,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
   const [currentFileSize, setCurrentFileSize] = useState<number>(0);
   const [searchMode, setSearchMode] = useState<"beat" | "producer-tag">("beat");
   const [deepScanEnabled, setDeepScanEnabled] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { scansPerDay, refreshSubscription } = useSubscription();
@@ -380,6 +382,66 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
           </TabsList>
         </Tabs>
 
+        {/* Advanced Options Collapsible */}
+        <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="w-full max-w-sm mx-auto">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="flex items-center gap-2 w-full justify-center">
+              <span className="text-sm font-medium">Advanced Options</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${advancedOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 pt-4">
+            {/* Year Filter Section */}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
+              <Label htmlFor="searchAllTime" className="text-sm font-medium cursor-pointer flex-1">
+                Search all time
+              </Label>
+              <Switch
+                id="searchAllTime"
+                checked={searchAllTime}
+                onCheckedChange={setSearchAllTime}
+              />
+            </div>
+
+            {!searchAllTime && (
+              <div className="space-y-2">
+                <Label htmlFor="beatYear" className="text-sm font-medium">
+                  Year beat was made (optional)
+                </Label>
+                <input
+                  id="beatYear"
+                  type="number"
+                  min="1900"
+                  max={new Date().getFullYear()}
+                  value={beatYear}
+                  onChange={(e) => setBeatYear(e.target.value)}
+                  placeholder={`e.g., ${new Date().getFullYear()}`}
+                  className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Only show songs released after this year
+                </p>
+              </div>
+            )}
+            
+            {/* Deep Scan Toggle */}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
+              <div className="flex-1">
+                <Label htmlFor="deepScan" className="text-sm font-medium cursor-pointer block">
+                  Deep Scan Mode
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Scans 7 segments for thorough analysis
+                </p>
+              </div>
+              <Switch
+                id="deepScan"
+                checked={deepScanEnabled}
+                onCheckedChange={setDeepScanEnabled}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         <input
           ref={fileInputRef}
