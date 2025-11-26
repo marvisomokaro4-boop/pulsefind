@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.detect-copyright]
 verify_jwt = true
+
+[functions.generate-logo-options]
+verify_jwt = true
