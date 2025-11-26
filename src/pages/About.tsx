@@ -33,7 +33,7 @@ const About = () => {
     },
     {
       question: "How do I upgrade to Pro?",
-      answer: "Visit our Pricing page to view our subscription plans. Pro tier offers unlimited uploads & scans, full deep scan analysis, auto alerts, full results, and downloadable match reports for $10/month."
+      answer: "Visit our Pricing page to view our subscription plans. Pro tier offers unlimited uploads & scans, full deep scan analysis, auto alerts, full results, and downloadable match reports for £4.99/month."
     },
     {
       question: "What happens to the first 50 signups?",

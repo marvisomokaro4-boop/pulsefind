@@ -31,7 +31,7 @@ const Pricing = () => {
     },
     {
       name: 'Pro',
-      price: '$10',
+      price: '£4.99',
       period: 'per month',
       scans: 'Unlimited uploads',
       features: [
@@ -43,7 +43,7 @@ const Pricing = () => {
         'Full scan history',
       ],
       cta: 'Upgrade to Pro',
-      priceId: 'price_1SXUU4INPuTkGHVySZpLst8A',
+      priceId: 'price_1SXX4KINPuTkGHVyBA2lg4zE',
       trial: false,
       popular: true,
     },
