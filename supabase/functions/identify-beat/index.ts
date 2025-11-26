@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
+import { searchYouTube } from "../_shared/youtubeSearch.ts";
+import { searchSpotify } from "../_shared/spotifySearch.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -501,13 +503,110 @@ serve(async (req) => {
     const arrayBuffer = await audioFile.arrayBuffer();
     
     // Run simplified ACRCloud scanning
-    const { results: matches, metrics, fromCache } = await identifyWithSimplifiedACRCloud(
+    const { results: acrcloudMatches, metrics, fromCache } = await identifyWithSimplifiedACRCloud(
       arrayBuffer, 
       audioFile.name,
       deepScan,
       matchingMode,
       supabaseClient
     );
+
+    console.log(`\n🌐 === MULTI-SOURCE SEARCH ===`);
+    console.log(`ACRCloud found ${acrcloudMatches.length} matches`);
+    
+    // Extract unique songs from ACRCloud to search other platforms
+    const songsToSearch = Array.from(new Set(
+      acrcloudMatches.slice(0, 5).map(m => JSON.stringify({ title: m.title, artist: m.artist }))
+    )).map(s => JSON.parse(s));
+    
+    // Run YouTube and Spotify searches in parallel for each ACRCloud result
+    const multiSourcePromises = songsToSearch.flatMap(song => [
+      searchYouTube(song.title, song.artist),
+      searchSpotify(song.title, song.artist)
+    ]);
+    
+    const multiSourceResults = await Promise.all(multiSourcePromises);
+    const youtubeMatches = multiSourceResults.filter((_, i) => i % 2 === 0).flat();
+    const spotifyMatches = multiSourceResults.filter((_, i) => i % 2 === 1).flat();
+    
+    console.log(`YouTube found ${youtubeMatches.length} additional matches`);
+    console.log(`Spotify found ${spotifyMatches.length} additional matches`);
+    
+    // Merge all results from all sources
+    let allMatches: any[] = [...acrcloudMatches];
+    
+    // Add YouTube matches that aren't already in ACRCloud results
+    for (const ytMatch of youtubeMatches) {
+      const ytMatchAny = ytMatch as any;
+      const existing: any = allMatches.find((m: any) => 
+        m.youtube_id === ytMatchAny.youtube_id ||
+        (m.title.toLowerCase() === ytMatchAny.title.toLowerCase() && 
+         m.artist.toLowerCase() === ytMatchAny.artist.toLowerCase())
+      );
+      
+      if (existing) {
+        // Merge YouTube data into existing match
+        if (!existing.youtube_id && ytMatchAny.youtube_id) {
+          existing.youtube_id = ytMatchAny.youtube_id;
+          existing.youtube_url = ytMatchAny.youtube_url;
+        }
+        existing.sources = existing.sources || ['ACRCloud'];
+        if (!existing.sources.includes('YouTube')) {
+          existing.sources.push('YouTube');
+        }
+      } else {
+        // Add as new match with YouTube as source
+        allMatches.push({ ...ytMatchAny, sources: ['YouTube'] });
+      }
+    }
+    
+    // Add Spotify matches that aren't already in results
+    for (const spMatch of spotifyMatches) {
+      const spMatchAny = spMatch as any;
+      const existing: any = allMatches.find((m: any) => 
+        m.spotify_id === spMatchAny.spotify_id ||
+        m.isrc === spMatchAny.isrc ||
+        (m.title.toLowerCase() === spMatchAny.title.toLowerCase() && 
+         m.artist.toLowerCase() === spMatchAny.artist.toLowerCase())
+      );
+      
+      if (existing) {
+        // Merge Spotify data into existing match
+        if (!existing.spotify_id && spMatchAny.spotify_id) {
+          existing.spotify_id = spMatchAny.spotify_id;
+          existing.spotify_url = spMatchAny.spotify_url;
+        }
+        if (!existing.album_cover_url && spMatchAny.album_cover_url) {
+          existing.album_cover_url = spMatchAny.album_cover_url;
+        }
+        if (!existing.preview_url && spMatchAny.preview_url) {
+          existing.preview_url = spMatchAny.preview_url;
+        }
+        if (!existing.popularity && spMatchAny.popularity) {
+          existing.popularity = spMatchAny.popularity;
+        }
+        existing.sources = existing.sources || ['ACRCloud'];
+        if (!existing.sources.includes('Spotify')) {
+          existing.sources.push('Spotify');
+        }
+      } else {
+        // Add as new match with Spotify as source
+        allMatches.push({ ...spMatchAny, sources: ['Spotify'] });
+      }
+    }
+    
+    // Mark ACRCloud-only matches
+    allMatches.forEach((m: any) => {
+      if (!m.sources) {
+        m.sources = ['ACRCloud'];
+      }
+    });
+    
+    console.log(`\n📊 MERGED RESULTS: ${allMatches.length} total matches from all sources`);
+    console.log(`  ACRCloud-only: ${allMatches.filter(m => m.sources?.length === 1 && m.sources[0] === 'ACRCloud').length}`);
+    console.log(`  Multi-source: ${allMatches.filter(m => m.sources && m.sources.length > 1).length}\n`);
+
+    const matches = allMatches;
 
     if (matches.length === 0) {
       console.log('❌ No matches found\n');
