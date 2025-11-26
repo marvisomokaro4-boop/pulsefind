@@ -34,6 +34,7 @@ interface Match {
   preview_url?: string;
   popularity?: number;
   match_quality?: 'high' | 'medium' | 'low';
+  cached?: boolean; // NEW: indicates if result came from local fingerprint database
   debug_info?: {
     raw_results_count?: number;
     segments_found?: string[];
@@ -44,9 +45,10 @@ interface Match {
 interface SongResultsProps {
   matches: Match[];
   debugMode?: boolean;
+  searchMode?: 'beat' | 'producer-tag';
 }
 
-const SongResults = ({ matches, debugMode = false }: SongResultsProps) => {
+const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -163,8 +165,22 @@ const SongResults = ({ matches, debugMode = false }: SongResultsProps) => {
         </Card>
       )}
       
+      {/* Cached Results Info Banner */}
+      {displayedMatches.some(m => m.cached) && (
+        <Card className="p-4 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+          <div className="flex items-center gap-2 mb-2">
+            <Music className="w-5 h-5 text-green-600 dark:text-green-400" />
+            <h3 className="font-semibold text-green-900 dark:text-green-100">⚡ Lightning Fast Results</h3>
+          </div>
+          <p className="text-sm text-green-800 dark:text-green-200">
+            {displayedMatches.filter(m => m.cached).length} result{displayedMatches.filter(m => m.cached).length !== 1 ? 's' : ''} found instantly from local fingerprint database. 
+            New matches are automatically cached for future speed improvements.
+          </p>
+        </Card>
+      )}
+      
       <div className="text-center px-4">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your Beat</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your {searchMode === 'beat' ? 'Beat' : 'Producer Tag'}</h2>
         <p className="text-sm sm:text-base text-muted-foreground">
           Found {highConfidenceMatches.length} high-confidence match{highConfidenceMatches.length !== 1 ? 'es' : ''}
         </p>
@@ -213,8 +229,15 @@ const SongResults = ({ matches, debugMode = false }: SongResultsProps) => {
                     </>
                   )}
                 </Badge>
-                <Badge variant="secondary" className="bg-background/80 backdrop-blur">
-                  {match.source}
+                <Badge 
+                  variant="secondary" 
+                  className={`backdrop-blur ${
+                    match.cached 
+                      ? 'bg-green-500/20 border-green-500/30 text-green-700 dark:text-green-300' 
+                      : 'bg-background/80'
+                  }`}
+                >
+                  {match.cached ? '⚡ Cached' : match.source}
                 </Badge>
               </div>
               <div className="absolute top-4 left-4 flex flex-col gap-1.5">

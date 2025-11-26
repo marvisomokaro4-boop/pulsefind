@@ -29,6 +29,7 @@ interface Match {
   preview_url?: string;
   popularity?: number;
   match_quality?: 'high' | 'medium' | 'low';
+  cached?: boolean; // NEW: indicates if result came from local fingerprint database
   debug_info?: {
     raw_results_count?: number;
     segments_found?: string[];
@@ -48,9 +49,10 @@ interface BeatInputProps {
   checkUploadLimit?: () => boolean;
   debugMode?: boolean;
   disableDeduplication?: boolean;
+  onSearchModeChange?: (mode: 'beat' | 'producer-tag') => void;
 }
 
-const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode = false, disableDeduplication = false }: BeatInputProps) => {
+const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode = false, disableDeduplication = false, onSearchModeChange }: BeatInputProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [isComplete, setIsComplete] = useState(false);
@@ -354,7 +356,11 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
         </div>
 
         {/* Search Mode Tabs */}
-        <Tabs value={searchMode} onValueChange={(value) => setSearchMode(value as "beat" | "producer-tag")} className="w-full max-w-md mx-auto">
+        <Tabs value={searchMode} onValueChange={(value) => {
+          const newMode = value as "beat" | "producer-tag";
+          setSearchMode(newMode);
+          onSearchModeChange?.(newMode);
+        }} className="w-full max-w-md mx-auto">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="beat">Beat Search</TabsTrigger>
             <TabsTrigger value="producer-tag">Producer Tag Search</TabsTrigger>

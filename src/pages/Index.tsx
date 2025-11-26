@@ -63,6 +63,7 @@ const Index = () => {
   const [monthlyUploads, setMonthlyUploads] = useState(0);
   const [debugMode, setDebugMode] = useState(false);
   const [disableDeduplication, setDisableDeduplication] = useState(false);
+  const [searchMode, setSearchMode] = useState<'beat' | 'producer-tag'>('beat');
   const navigate = useNavigate();
   const { toast } = useToast();
   const { plan, scansPerDay, isLoading } = useSubscription();
@@ -328,6 +329,7 @@ const Index = () => {
           checkUploadLimit={checkUploadLimit}
           debugMode={debugMode}
           disableDeduplication={disableDeduplication}
+          onSearchModeChange={setSearchMode}
         />
       </section>
 
@@ -344,7 +346,7 @@ const Index = () => {
       {/* Results Section */}
       {hasSearched && (
         <section className="container mx-auto px-4 pb-16">
-          {matches.length > 0 && <SongResults matches={matches} debugMode={debugMode} />}
+          {matches.length > 0 && <SongResults matches={matches} debugMode={debugMode} searchMode={searchMode} />}
           {batchResults.length > 0 && <BatchResults results={batchResults} />}
         </section>
       )}
