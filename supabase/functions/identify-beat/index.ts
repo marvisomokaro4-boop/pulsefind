@@ -271,10 +271,116 @@ async function identifyWithSimplifiedACRCloud(
 }> {
   const fileSize = arrayBuffer.byteLength;
   
-  console.log('\n=== SIMPLIFIED ACRCLOUD SCANNING ===');
+  console.log('\n=== AUDIO FINGERPRINT IDENTIFICATION ===');
   console.log(`File size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
   console.log(`Deep Scan Mode: ${deepScan ? 'ENABLED (7 segments)' : 'DISABLED (3 segments)'}`);
   console.log(`Matching Mode: ${matchingMode.toUpperCase()} (${matchingMode === 'strict' ? '≥85%' : '≥40%'} confidence)`);
+  
+  // PHASE 1: Check local fingerprint database first for instant matches
+  console.log('\n🔍 PHASE 1: Checking local fingerprint database...');
+  try {
+    const startTime = Date.now();
+    const audioFeatures = await generateAudioFingerprint(arrayBuffer);
+    const fingerprintTime = Date.now() - startTime;
+    console.log(`✅ Generated binary fingerprint in ${fingerprintTime}ms (${audioFeatures.binaryFingerprint.length} chars)`);
+    
+    // Query all stored fingerprints
+    const { data: storedFingerprints, error: dbError } = await supabaseClient
+      .from('beat_fingerprints')
+      .select('*');
+    
+    if (dbError) {
+      console.error('❌ Database query error:', dbError);
+    } else if (!storedFingerprints || storedFingerprints.length === 0) {
+      console.log('📭 Local database is empty - no previous scans to match against');
+    } else {
+      console.log(`📊 Comparing against ${storedFingerprints.length} stored fingerprints...`);
+      
+      const MIN_CONFIDENCE = matchingMode === 'strict' ? 85 : 40;
+      const minSimilarity = MIN_CONFIDENCE / 100; // Convert to 0-1 range
+      const localMatches: any[] = [];
+      
+      for (const stored of storedFingerprints) {
+        if (!stored.mfcc_features || typeof stored.mfcc_features !== 'string') continue;
+        
+        const storedFingerprint = stored.mfcc_features as string;
+        const similarity = calculateHammingDistance(audioFeatures.binaryFingerprint, storedFingerprint);
+        const confidencePercent = Math.round(similarity * 100);
+        
+        if (similarity >= minSimilarity) {
+          console.log(`  ✓ Match found: "${stored.song_title}" by ${stored.artist} (${confidencePercent}% similarity)`);
+          localMatches.push({
+            title: stored.song_title,
+            artist: stored.artist,
+            album: stored.album,
+            confidence: confidencePercent,
+            source: 'Local Database (cached)',
+            isrc: stored.isrc,
+            spotify_id: stored.spotify_id,
+            apple_music_id: stored.apple_music_id,
+            youtube_id: stored.youtube_id,
+            release_date: stored.release_date,
+            segment: 'CACHED',
+            match_quality: confidencePercent >= 85 ? 'high' : confidencePercent >= 60 ? 'medium' : 'low',
+            cached: true,
+            album_cover_url: stored.album_cover_url,
+            preview_url: stored.preview_url,
+            popularity: stored.popularity
+          });
+        }
+      }
+      
+      if (localMatches.length > 0) {
+        console.log(`\n⚡ INSTANT MATCH! Found ${localMatches.length} cached result(s) from local database`);
+        console.log('✅ Skipping ACRCloud scan - returning cached matches\n');
+        
+        // Store the new fingerprint for this beat too
+        const fingerprintHash = audioFeatures.hash;
+        await supabaseClient
+          .from('beat_fingerprints')
+          .upsert({
+            fingerprint_hash: fingerprintHash,
+            song_title: localMatches[0].title,
+            artist: localMatches[0].artist,
+            album: localMatches[0].album,
+            confidence_score: localMatches[0].confidence,
+            source: 'local_cache',
+            mfcc_features: audioFeatures.binaryFingerprint, // Store as hex string
+            isrc: localMatches[0].isrc,
+            spotify_id: localMatches[0].spotify_id,
+            apple_music_id: localMatches[0].apple_music_id,
+            release_date: localMatches[0].release_date,
+            audio_duration_ms: audioFeatures.duration_ms
+          }, { onConflict: 'fingerprint_hash' });
+        
+        return {
+          results: localMatches,
+          metrics: {
+            segmentsScanned: 0,
+            resultsBeforeFilter: localMatches.length,
+            resultsAfterFilter: localMatches.length,
+            confidenceScores: localMatches.map(m => m.confidence)
+          },
+          fromCache: true,
+          platformStats: {
+            acrcloud: {
+              segmentsScanned: 0,
+              segmentsSuccessful: 0,
+              segmentsFailed: 0
+            }
+          }
+        };
+      }
+      
+      console.log('❌ No local matches found - proceeding to ACRCloud scan\n');
+    }
+  } catch (fingerprintError) {
+    console.error('❌ Local fingerprint check failed:', fingerprintError);
+    console.log('⚠️  Falling back to ACRCloud scan...\n');
+  }
+  
+  // PHASE 2: ACRCloud external scan (if no local matches found)
+  console.log('🌐 PHASE 2: ACRCloud external scan...');
   
   // Enhanced multi-resolution segment strategy
   // Full audio + 15s, 20s, 30s segments at strategic positions
@@ -390,31 +496,44 @@ async function identifyWithSimplifiedACRCloud(
   
   console.log('=== SCAN COMPLETE ===\n');
   
-  // Cache results to beat_fingerprints table for future lookups
+  // Cache results to beat_fingerprints table with binary fingerprints for future instant matching
   if (filtered.length > 0 && supabaseClient) {
-    console.log('💾 Caching results to database...');
-    for (const track of filtered) {
-      try {
-        await supabaseClient
-          .from('beat_fingerprints')
-          .upsert({
-            fingerprint_hash: track.isrc || `${track.title}|||${track.artist}`,
-            song_title: track.title,
-            artist: track.artist,
-            album: track.album,
-            confidence_score: track.confidence,
-            source: 'acrcloud',
-            isrc: track.isrc,
-            spotify_id: track.spotify_id,
-            apple_music_id: track.apple_music_id,
-            youtube_id: track.youtube_id,
-            release_date: track.release_date,
-          }, { onConflict: 'fingerprint_hash' });
-      } catch (err) {
-        console.error('Failed to cache track:', err);
+    console.log('💾 Caching results with binary fingerprints to database...');
+    
+    try {
+      // Generate fingerprint for this beat
+      const audioFeatures = await generateAudioFingerprint(arrayBuffer);
+      console.log(`✅ Generated binary fingerprint (${audioFeatures.binaryFingerprint.length} chars)`);
+      
+      for (const track of filtered) {
+        try {
+          const fingerprintHash = track.isrc || audioFeatures.hash || `${track.title}|||${track.artist}`;
+          await supabaseClient
+            .from('beat_fingerprints')
+            .upsert({
+              fingerprint_hash: fingerprintHash,
+              song_title: track.title,
+              artist: track.artist,
+              album: track.album,
+              confidence_score: track.confidence,
+              source: 'acrcloud',
+              mfcc_features: audioFeatures.binaryFingerprint, // Store as hex string for Hamming distance
+              isrc: track.isrc,
+              spotify_id: track.spotify_id,
+              apple_music_id: track.apple_music_id,
+              youtube_id: track.youtube_id,
+              release_date: track.release_date,
+              audio_duration_ms: audioFeatures.duration_ms
+            }, { onConflict: 'fingerprint_hash' });
+        } catch (err) {
+          console.error('Failed to cache track:', err);
+        }
       }
+      console.log(`✅ Cached ${filtered.length} tracks with fingerprints for instant future matching\n`);
+    } catch (fingerprintError) {
+      console.error('❌ Failed to generate fingerprint for caching:', fingerprintError);
+      console.log('⚠️  Results cached without fingerprints\n');
     }
-    console.log(`✅ Cached ${filtered.length} tracks\n`);
   }
   
   const metrics: ScanMetrics = {
