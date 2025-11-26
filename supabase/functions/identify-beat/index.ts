@@ -256,7 +256,18 @@ async function identifyWithSimplifiedACRCloud(
   deepScan: boolean = false,
   matchingMode: 'loose' | 'strict' = 'loose',
   supabaseClient: any
-): Promise<{ results: any[], metrics: ScanMetrics, fromCache: boolean }> {
+): Promise<{ 
+  results: any[], 
+  metrics: ScanMetrics, 
+  fromCache: boolean,
+  platformStats: {
+    acrcloud: {
+      segmentsScanned: number,
+      segmentsSuccessful: number,
+      segmentsFailed: number
+    }
+  }
+}> {
   const fileSize = arrayBuffer.byteLength;
   
   console.log('\n=== SIMPLIFIED ACRCLOUD SCANNING ===');
@@ -280,13 +291,35 @@ async function identifyWithSimplifiedACRCloud(
   
   console.log(`Scanning ${segments.length} segments: ${segments.map(s => s.name).join(', ')}\n`);
   
+  // Track ACRCloud segment success/failure
+  let acrcloudSuccessCount = 0;
+  let acrcloudFailureCount = 0;
+  
   // Scan all segments in parallel (for maximum speed)
   const segmentResults = await Promise.all(
-    segments.map(seg => identifySegmentWithACRCloud(arrayBuffer, fileName, seg.offset, seg.name))
+    segments.map(seg => 
+      identifySegmentWithACRCloud(arrayBuffer, fileName, seg.offset, seg.name)
+        .then(results => {
+          if (results.length > 0) {
+            acrcloudSuccessCount++;
+          }
+          return results;
+        })
+        .catch(err => {
+          console.error(`❌ ACRCloud segment ${seg.name} failed:`, err.message);
+          acrcloudFailureCount++;
+          return [];
+        })
+    )
   );
   
   const allTracks = segmentResults.flat();
-  console.log(`\n📊 Raw results from all segments: ${allTracks.length} tracks`);
+  console.log(`\n📊 ACRCLOUD SEGMENT RESULTS:`);
+  console.log(`  Total segments scanned: ${segments.length}`);
+  console.log(`  Successful: ${acrcloudSuccessCount} (returned results)`);
+  console.log(`  No results: ${segments.length - acrcloudSuccessCount - acrcloudFailureCount}`);
+  console.log(`  Failed: ${acrcloudFailureCount}`);
+  console.log(`  Raw tracks found: ${allTracks.length}\n`);
   
   // Log which segments returned results
   segments.forEach((seg, i) => {
@@ -381,7 +414,18 @@ async function identifyWithSimplifiedACRCloud(
     confidenceScores
   };
   
-  return { results: filtered, metrics, fromCache: false };
+  return { 
+    results: filtered, 
+    metrics, 
+    fromCache: false,
+    platformStats: {
+      acrcloud: {
+        segmentsScanned: segments.length,
+        segmentsSuccessful: acrcloudSuccessCount,
+        segmentsFailed: acrcloudFailureCount
+      }
+    }
+  };
 }
 
 serve(async (req) => {
@@ -503,7 +547,7 @@ serve(async (req) => {
     const arrayBuffer = await audioFile.arrayBuffer();
     
     // Run simplified ACRCloud scanning
-    const { results: acrcloudMatches, metrics, fromCache } = await identifyWithSimplifiedACRCloud(
+    const { results: acrcloudMatches, metrics, fromCache, platformStats } = await identifyWithSimplifiedACRCloud(
       arrayBuffer, 
       audioFile.name,
       deepScan,
@@ -519,18 +563,39 @@ serve(async (req) => {
       acrcloudMatches.slice(0, 5).map(m => JSON.stringify({ title: m.title, artist: m.artist }))
     )).map(s => JSON.parse(s));
     
+    console.log(`\nSearching ${songsToSearch.length} songs across additional platforms:\n`);
+    
+    // Track platform search results
+    let youtubeSuccess = 0;
+    let youtubeFailed = 0;
+    let spotifySuccess = 0;
+    let spotifyFailed = 0;
+    
     // Run YouTube and Spotify searches in parallel for each ACRCloud result
     const multiSourcePromises = songsToSearch.flatMap(song => [
-      searchYouTube(song.title, song.artist),
-      searchSpotify(song.title, song.artist)
+      searchYouTube(song.title, song.artist).catch(err => {
+        console.error(`❌ YouTube search failed for "${song.title}" by ${song.artist}:`, err.message);
+        youtubeFailed++;
+        return [];
+      }),
+      searchSpotify(song.title, song.artist).catch(err => {
+        console.error(`❌ Spotify search failed for "${song.title}" by ${song.artist}:`, err.message);
+        spotifyFailed++;
+        return [];
+      })
     ]);
     
     const multiSourceResults = await Promise.all(multiSourcePromises);
     const youtubeMatches = multiSourceResults.filter((_, i) => i % 2 === 0).flat();
     const spotifyMatches = multiSourceResults.filter((_, i) => i % 2 === 1).flat();
     
-    console.log(`YouTube found ${youtubeMatches.length} additional matches`);
-    console.log(`Spotify found ${spotifyMatches.length} additional matches`);
+    // Count successful searches
+    youtubeSuccess = songsToSearch.length - youtubeFailed;
+    spotifySuccess = songsToSearch.length - spotifyFailed;
+    
+    console.log(`\n📊 PLATFORM SEARCH RESULTS:`);
+    console.log(`  YouTube: ${youtubeSuccess}/${songsToSearch.length} successful (${youtubeMatches.length} matches found, ${youtubeFailed} failed)`);
+    console.log(`  Spotify: ${spotifySuccess}/${songsToSearch.length} successful (${spotifyMatches.length} matches found, ${spotifyFailed} failed)`);
     
     // Merge all results from all sources
     let allMatches: any[] = [...acrcloudMatches];
@@ -604,7 +669,13 @@ serve(async (req) => {
     
     console.log(`\n📊 MERGED RESULTS: ${allMatches.length} total matches from all sources`);
     console.log(`  ACRCloud-only: ${allMatches.filter(m => m.sources?.length === 1 && m.sources[0] === 'ACRCloud').length}`);
-    console.log(`  Multi-source: ${allMatches.filter(m => m.sources && m.sources.length > 1).length}\n`);
+    console.log(`  Multi-source: ${allMatches.filter(m => m.sources && m.sources.length > 1).length}`);
+    
+    // Platform health summary
+    console.log(`\n🏥 PLATFORM HEALTH SUMMARY:`);
+    console.log(`  ACRCloud: ${platformStats.acrcloud.segmentsSuccessful}/${platformStats.acrcloud.segmentsScanned} segments successful`);
+    console.log(`  YouTube: ${youtubeSuccess}/${songsToSearch.length} searches successful`);
+    console.log(`  Spotify: ${spotifySuccess}/${songsToSearch.length} searches successful\n`);
 
     const matches = allMatches;
 
