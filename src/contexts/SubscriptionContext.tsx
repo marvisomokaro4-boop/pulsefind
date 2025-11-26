@@ -33,10 +33,10 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      // First, get and validate the current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Validate session with server (not just local storage)
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (sessionError || !session || !session.access_token) {
+      if (userError || !user) {
         // No valid session, use Free tier without calling edge function
         setPlan('Free');
         setScansPerDay(1);
@@ -44,35 +44,7 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Verify the session hasn't expired
-      const expiresAt = session.expires_at || 0;
-      const now = Math.floor(Date.now() / 1000);
-
-      if (expiresAt <= now) {
-        // Session has expired, don't call edge function
-        setPlan('Free');
-        setScansPerDay(1);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if session is about to expire (within 5 minutes) and refresh if needed
-      const fiveMinutes = 5 * 60;
-      if (expiresAt - now < fiveMinutes) {
-        const { data: { session: newSession }, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError || !newSession) {
-          console.error('Session refresh failed:', refreshError);
-          setHasAuthError(true);
-          await supabase.auth.signOut();
-          setPlan('Free');
-          setScansPerDay(1);
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Only call edge function if we have a valid, non-expired session
+      // Only call edge function if we have a valid authenticated user
       const { data, error } = await supabase.functions.invoke('check-subscription');
       
       if (error) {
@@ -124,9 +96,9 @@ export const SubscriptionProvider = ({ children }: { children: ReactNode }) => {
     if (!hasAuthError) {
       // Check every 5 minutes instead of every minute
       interval = setInterval(async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        // Only refresh if there's an active session
-        if (session?.access_token) {
+        const { data: { user } } = await supabase.auth.getUser();
+        // Only refresh if there's an active authenticated user
+        if (user) {
           refreshSubscription();
         }
       }, 5 * 60 * 1000); // 5 minutes
