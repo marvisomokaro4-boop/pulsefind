@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import History from "./pages/History";
 import AdminAnalytics from "./pages/AdminAnalytics";
+import Analytics from "./pages/Analytics";
 import Pricing from "./pages/Pricing";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import Notifications from "./pages/Notifications";
@@ -50,6 +51,7 @@ const App = () => (
                   <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/admin" element={<AdminAnalytics />} />
+                  <Route path="/analytics" element={<Analytics />} />
                   <Route path="/test-alerts" element={<TestAlerts />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />

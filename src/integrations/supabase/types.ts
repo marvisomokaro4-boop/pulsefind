@@ -437,6 +437,105 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_analytics: {
+        Row: {
+          acrcloud_matches: number | null
+          audio_quality_score: number | null
+          avg_confidence_score: number | null
+          beat_id: string | null
+          created_at: string
+          error_messages: string[] | null
+          errors_encountered: number | null
+          fingerprint_duration_ms: number | null
+          id: string
+          local_cache_hit: boolean | null
+          matching_duration_ms: number | null
+          matching_mode: string
+          max_confidence_score: number | null
+          min_confidence_score: number | null
+          preprocessing_duration_ms: number | null
+          scan_date: string
+          segments_analyzed: number
+          segments_successful: number
+          silence_trimmed_ms: number | null
+          spotify_matches: number | null
+          total_duration_ms: number
+          total_matches_found: number
+          user_id: string | null
+          volume_normalized: boolean | null
+          youtube_matches: number | null
+        }
+        Insert: {
+          acrcloud_matches?: number | null
+          audio_quality_score?: number | null
+          avg_confidence_score?: number | null
+          beat_id?: string | null
+          created_at?: string
+          error_messages?: string[] | null
+          errors_encountered?: number | null
+          fingerprint_duration_ms?: number | null
+          id?: string
+          local_cache_hit?: boolean | null
+          matching_duration_ms?: number | null
+          matching_mode: string
+          max_confidence_score?: number | null
+          min_confidence_score?: number | null
+          preprocessing_duration_ms?: number | null
+          scan_date?: string
+          segments_analyzed: number
+          segments_successful: number
+          silence_trimmed_ms?: number | null
+          spotify_matches?: number | null
+          total_duration_ms: number
+          total_matches_found?: number
+          user_id?: string | null
+          volume_normalized?: boolean | null
+          youtube_matches?: number | null
+        }
+        Update: {
+          acrcloud_matches?: number | null
+          audio_quality_score?: number | null
+          avg_confidence_score?: number | null
+          beat_id?: string | null
+          created_at?: string
+          error_messages?: string[] | null
+          errors_encountered?: number | null
+          fingerprint_duration_ms?: number | null
+          id?: string
+          local_cache_hit?: boolean | null
+          matching_duration_ms?: number | null
+          matching_mode?: string
+          max_confidence_score?: number | null
+          min_confidence_score?: number | null
+          preprocessing_duration_ms?: number | null
+          scan_date?: string
+          segments_analyzed?: number
+          segments_successful?: number
+          silence_trimmed_ms?: number | null
+          spotify_matches?: number | null
+          total_duration_ms?: number
+          total_matches_found?: number
+          user_id?: string | null
+          volume_normalized?: boolean | null
+          youtube_matches?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_analytics_beat_id_fkey"
+            columns: ["beat_id"]
+            isOneToOne: false
+            referencedRelation: "beats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_analytics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scan_usage: {
         Row: {
           created_at: string | null

@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.get-promo-stats]
 verify_jwt = false
 
+[functions.get-analytics]
+verify_jwt = true
+
 [functions.create-checkout]
 verify_jwt = true
 
