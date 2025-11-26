@@ -211,11 +211,13 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
       console.error('Error checking scan limits:', error);
     }
 
-    // Validate file types
-    const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/m4a'];
-    const invalidFiles = filesArray.filter(
-      file => !validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a)$/i)
-    );
+    // Validate file types - check extension first (more reliable on mobile)
+    const invalidFiles = filesArray.filter(file => {
+      const hasValidExtension = /\.(mp3|wav|ogg|m4a)$/i.test(file.name);
+      const validTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/ogg', 'audio/m4a', 'audio/x-m4a'];
+      const hasValidType = validTypes.includes(file.type) || file.type === '';
+      return !hasValidExtension && !hasValidType;
+    });
 
     if (invalidFiles.length > 0) {
       toast({
@@ -383,7 +385,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
         <input
           ref={fileInputRef}
           type="file"
-          accept="audio/*"
+          accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/m4a,.mp3,.wav,.ogg,.m4a"
           multiple
           onChange={handleFileSelect}
           className="hidden"
