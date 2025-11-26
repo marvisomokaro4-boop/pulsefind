@@ -768,6 +768,26 @@ async function tryMultipleQueryStrategies(
     console.error('Strategy 4 failed:', error);
   }
   
+  // Strategy 5: Last 20 seconds
+  console.log('Strategy 5: Last 20 seconds');
+  try {
+    const twentySecondsBytes = Math.min(352800, fileSize); // ~20 seconds
+    const lastSegmentStart = Math.max(0, fileSize - twentySecondsBytes);
+    
+    metrics.retryAttempts++;
+    const lastResults = await identifySegmentWithACRCloud(
+      arrayBuffer,
+      fileName,
+      lastSegmentStart,
+      'last-20s',
+      'high'
+    );
+    allResults.push(...lastResults);
+    console.log(`Strategy 5 found ${lastResults.length} results`);
+  } catch (error) {
+    console.error('Strategy 5 failed:', error);
+  }
+  
   console.log(`All strategies completed, total results: ${allResults.length}`);
   return allResults;
 }
@@ -998,9 +1018,9 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
         return false;
       }
       
-      // Rule 2: Must have valid metadata (ISRC, title, artist)
-      if (!track.title || !track.artist) {
-        console.log(`Rejected: "${track.title}" - Missing title or artist`);
+      // Rule 2: Must have valid metadata (ISRC, title, artist) - ISRC is now required
+      if (!track.isrc || !track.title || !track.artist) {
+        console.log(`Rejected: "${track.title}" - Missing ISRC, title, or artist (ISRC: ${track.isrc || 'none'})`);
         return false;
       }
       
@@ -1145,10 +1165,11 @@ serve(async (req) => {
     }
 
     // Get audio file as ArrayBuffer
-    let arrayBuffer = await audioFile.arrayBuffer();
+    const arrayBuffer = await audioFile.arrayBuffer();
     
-    // Preprocess audio for better fingerprinting
-    arrayBuffer = await preprocessAudio(arrayBuffer);
+    // NOTE: Audio preprocessing disabled - normalization and silence removal
+    // were causing identification failures with producer beats
+    // ACRCloud handles various audio formats natively
     
     // Track scan attempt
     metrics.totalScans++;
