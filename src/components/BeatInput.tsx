@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { MatchingModeToggle } from "./MatchingModeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -68,6 +69,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
   const [deepScanEnabled, setDeepScanEnabled] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [lastUploadedFile, setLastUploadedFile] = useState<File | null>(null);
+  const [matchingMode, setMatchingMode] = useState<"loose" | "strict">("loose");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { scansPerDay, refreshSubscription } = useSubscription();
@@ -94,6 +96,9 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
       if (deepScanEnabled) {
         formData.append('deepScan', 'true');
       }
+      
+      // Add matching mode
+      formData.append('matchingMode', matchingMode);
 
       // Call the identify-beat edge function
       const response = await fetch(
@@ -465,6 +470,12 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
             <TabsTrigger value="producer-tag">Tag</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Matching Mode Toggle */}
+        <MatchingModeToggle 
+          mode={matchingMode}
+          onModeChange={setMatchingMode}
+        />
 
         {/* Advanced Options Collapsible */}
         <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="w-full max-w-sm mx-auto">
