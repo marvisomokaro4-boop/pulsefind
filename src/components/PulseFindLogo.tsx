@@ -1,7 +1,4 @@
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Activity } from "lucide-react";
 
 interface PulseFindLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
@@ -14,9 +11,6 @@ export const PulseFindLogo = ({
   showText = true,
   className 
 }: PulseFindLogoProps) => {
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
   const sizeMap = {
     sm: { width: "32px", height: "32px", text: "text-base" },
     md: { width: "40px", height: "40px", text: "text-xl" },
@@ -25,45 +19,6 @@ export const PulseFindLogo = ({
   };
 
   const sizes = sizeMap[size];
-
-  useEffect(() => {
-    const generateLogo = async () => {
-      try {
-        // Version the cache to ensure all devices get the latest logo
-        const LOGO_VERSION = 'v2';
-        const cachedLogo = localStorage.getItem(`pulsefind-logo-${LOGO_VERSION}`);
-        if (cachedLogo) {
-          setLogoUrl(cachedLogo);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Clear old cached versions
-        localStorage.removeItem('pulsefind-logo');
-
-        const { data, error } = await supabase.functions.invoke('generate-logo', {
-          body: {
-            prompt: `Create a modern, sleek logo for "PulseFind" - a music production platform. The logo should combine a stylized letter "P" with a pulse waveform/heartbeat line, inspired by music industry brands like Beatstars, Spotify, and SoundCloud. Use a vibrant cyan/teal gradient (#00D4FF to #7B61FF). The design should be minimalist, iconic, professional, and work well at small sizes. Make it square-shaped with a rounded background, perfect for an app icon. The pulse line should elegantly integrate through or around the letter P. Ultra high resolution, clean lines, no text.`
-          }
-        });
-
-        if (error) throw error;
-
-        if (data?.imageUrl) {
-          setLogoUrl(data.imageUrl);
-          // Cache the logo with version
-          const LOGO_VERSION = 'v2';
-          localStorage.setItem(`pulsefind-logo-${LOGO_VERSION}`, data.imageUrl);
-        }
-      } catch (error) {
-        console.error('Error generating logo:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    generateLogo();
-  }, []);
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
@@ -95,17 +50,35 @@ export const PulseFindLogo = ({
             height: sizes.height 
           }}
         >
-          {isLoading ? (
-            <Activity className={cn("animate-pulse text-primary-foreground", size === "sm" ? "h-4 w-4" : size === "md" ? "h-6 w-6" : size === "lg" ? "h-12 w-12" : "h-16 w-16")} />
-          ) : logoUrl ? (
-            <img 
-              src={logoUrl} 
-              alt="PulseFind Logo" 
-              className="w-full h-full object-cover"
+          <svg 
+            viewBox="0 0 100 100" 
+            className="w-full h-full p-2"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Letter P */}
+            <path
+              d="M 25 20 L 25 80 M 25 20 L 55 20 Q 70 20 70 35 Q 70 50 55 50 L 25 50"
+              stroke="currentColor"
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-primary-foreground"
+              fill="none"
             />
-          ) : (
-            <Activity className={cn("text-primary-foreground", size === "sm" ? "h-4 w-4" : size === "md" ? "h-6 w-6" : size === "lg" ? "h-12 w-12" : "h-16 w-16")} />
-          )}
+            {/* Pulse waveform */}
+            <path
+              d="M 15 50 L 25 50 L 30 35 L 35 65 L 40 45 L 45 55 L 50 50 L 75 50 L 80 35 L 85 50"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-primary-foreground opacity-90"
+              fill="none"
+              style={{
+                filter: "drop-shadow(0 0 4px currentColor)"
+              }}
+            />
+          </svg>
         </div>
       </div>
 
