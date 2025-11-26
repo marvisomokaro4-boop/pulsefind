@@ -1,11 +1,14 @@
-// Chromaprint-style binary fingerprinting for local database matching
-// Uses binary fingerprints with Hamming distance for exact match detection
+// Enhanced Audio Fingerprinting with Neural Embeddings
+// Chromaprint-style binary fingerprinting + Neural spectral embeddings for robust matching
 
 interface AudioFeatures {
   binaryFingerprint: string; // Binary fingerprint (hex string) for Hamming distance
   hash: string; // Quick lookup hash
   mfcc: number[][]; // MFCC-like coefficients for fuzzy similarity matching
+  neuralEmbedding?: Float32Array; // Neural spectral embedding for tempo/pitch-invariant matching
   duration_ms: number;
+  tempo?: number; // Estimated BPM
+  energy?: number; // RMS energy 0-1
 }
 
 /**
@@ -13,7 +16,8 @@ interface AudioFeatures {
  * Creates binary fingerprint for Hamming distance matching + hash + MFCC for fuzzy matching
  */
 export async function generateAudioFingerprint(
-  audioBuffer: ArrayBuffer
+  audioBuffer: ArrayBuffer,
+  includeNeuralEmbedding: boolean = false
 ): Promise<AudioFeatures> {
   try {
     // Convert to Int16 samples
@@ -30,16 +34,184 @@ export async function generateAudioFingerprint(
     // Extract MFCC-like features for fuzzy similarity matching
     const mfcc = extractSpectralFeatures(samples);
     
-    return {
+    // Calculate energy
+    let sumSquares = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const normalized = samples[i] / 32768;
+      sumSquares += normalized * normalized;
+    }
+    const energy = Math.sqrt(sumSquares / samples.length);
+    
+    // Estimate tempo (simplified)
+    const tempo = estimateSimpleTempo(samples);
+    
+    const features: AudioFeatures = {
       binaryFingerprint,
       hash,
       mfcc,
-      duration_ms
+      duration_ms,
+      tempo,
+      energy: Math.min(1, energy * 10) // Normalize to 0-1
     };
+    
+    // Optionally include neural embedding (more computationally expensive)
+    if (includeNeuralEmbedding) {
+      try {
+        const floatSamples = new Float32Array(samples.length);
+        for (let i = 0; i < samples.length; i++) {
+          floatSamples[i] = samples[i] / 32768; // Normalize to -1 to 1
+        }
+        features.neuralEmbedding = extractSimplifiedNeuralEmbedding(floatSamples);
+      } catch (err) {
+        console.error('Failed to extract neural embedding:', err);
+      }
+    }
+    
+    return features;
   } catch (error) {
     console.error('Fingerprint generation error:', error);
     throw error;
   }
+}
+
+/**
+ * Simplified tempo estimation
+ */
+function estimateSimpleTempo(samples: Int16Array): number {
+  const frameSize = 2048;
+  const hopSize = 512;
+  const sampleRate = 44100;
+  
+  // Compute onset envelope
+  const onsetEnvelope: number[] = [];
+  for (let i = 0; i < samples.length - frameSize; i += hopSize) {
+    const frame = samples.slice(i, i + frameSize);
+    let energy = 0;
+    for (let j = 0; j < frame.length; j++) {
+      energy += frame[j] * frame[j];
+    }
+    onsetEnvelope.push(Math.sqrt(energy));
+  }
+  
+  // Autocorrelation
+  const minBPM = 60;
+  const maxBPM = 180;
+  const minLag = Math.floor((60 / maxBPM) * sampleRate / hopSize);
+  const maxLag = Math.floor((60 / minBPM) * sampleRate / hopSize);
+  
+  let maxCorrelation = 0;
+  let bestLag = minLag;
+  
+  for (let lag = minLag; lag <= Math.min(maxLag, onsetEnvelope.length / 2); lag++) {
+    let correlation = 0;
+    for (let i = 0; i < onsetEnvelope.length - lag; i++) {
+      correlation += onsetEnvelope[i] * onsetEnvelope[i + lag];
+    }
+    
+    if (correlation > maxCorrelation) {
+      maxCorrelation = correlation;
+      bestLag = lag;
+    }
+  }
+  
+  const bpm = (60 * sampleRate) / (bestLag * hopSize);
+  return Math.round(Math.max(60, Math.min(180, bpm)));
+}
+
+/**
+ * Extract simplified neural-style embedding
+ */
+function extractSimplifiedNeuralEmbedding(samples: Float32Array): Float32Array {
+  const frameSize = 512;
+  const hopSize = 256;
+  const numMelBands = 64; // Smaller for efficiency
+  
+  const frames: Float32Array[] = [];
+  
+  // Sample up to 30 seconds for efficiency
+  const maxSamples = Math.min(samples.length, 44100 * 30);
+  
+  for (let i = 0; i < maxSamples - frameSize; i += hopSize) {
+    const frame = samples.slice(i, i + frameSize);
+    
+    // Apply Hamming window
+    const windowed = new Float32Array(frameSize);
+    for (let j = 0; j < frameSize; j++) {
+      const window = 0.54 - 0.46 * Math.cos((2 * Math.PI * j) / (frameSize - 1));
+      windowed[j] = frame[j] * window;
+    }
+    
+    // Compute mel-scale spectrum (simplified)
+    const melSpectrum = computeSimplifiedMelSpectrum(windowed, numMelBands);
+    frames.push(melSpectrum);
+  }
+  
+  // Aggregate statistics
+  const embedding = aggregateFrameStatistics(frames, numMelBands);
+  return embedding;
+}
+
+/**
+ * Compute simplified mel spectrum
+ */
+function computeSimplifiedMelSpectrum(frame: Float32Array, numBands: number): Float32Array {
+  const spectrum = new Float32Array(numBands);
+  const bandSize = Math.floor(frame.length / numBands);
+  
+  for (let band = 0; band < numBands; band++) {
+    const start = band * bandSize;
+    const end = Math.min(start + bandSize, frame.length);
+    
+    let energy = 0;
+    for (let i = start; i < end; i++) {
+      energy += frame[i] * frame[i];
+    }
+    
+    spectrum[band] = Math.log(energy + 1e-10);
+  }
+  
+  return spectrum;
+}
+
+/**
+ * Aggregate frame statistics
+ */
+function aggregateFrameStatistics(frames: Float32Array[], numBands: number): Float32Array {
+  if (frames.length === 0) return new Float32Array(numBands * 3);
+  
+  const mean = new Float32Array(numBands);
+  const std = new Float32Array(numBands);
+  const max = new Float32Array(numBands);
+  
+  // Compute mean
+  for (const frame of frames) {
+    for (let i = 0; i < numBands; i++) {
+      mean[i] += frame[i];
+    }
+  }
+  for (let i = 0; i < numBands; i++) {
+    mean[i] /= frames.length;
+  }
+  
+  // Compute std and max
+  for (const frame of frames) {
+    for (let i = 0; i < numBands; i++) {
+      const diff = frame[i] - mean[i];
+      std[i] += diff * diff;
+      max[i] = Math.max(max[i], frame[i]);
+    }
+  }
+  for (let i = 0; i < numBands; i++) {
+    std[i] = Math.sqrt(std[i] / frames.length);
+  }
+  
+  // Concatenate statistics
+  const embedding = new Float32Array(numBands * 3);
+  embedding.set(mean, 0);
+  embedding.set(std, numBands);
+  embedding.set(max, numBands * 2);
+  
+  return embedding;
 }
 
 /**

@@ -4,6 +4,19 @@ import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
 import { searchYouTube } from "../_shared/youtubeSearch.ts";
 import { searchSpotify } from "../_shared/spotifySearch.ts";
 import { generateAudioFingerprint, calculateHammingDistance } from "../_shared/audioFingerprint.ts";
+import { selectDynamicSegments, type AudioSegment } from "../_shared/dynamicSegmentation.ts";
+import { 
+  analyzeBeatCharacteristics, 
+  calculateAdaptiveThresholds 
+} from "../_shared/adaptiveThresholds.ts";
+import {
+  logEnhancedAnalytics,
+  analyzeSegmentPerformance,
+  detectAnomalies,
+  generateInsightsSummary,
+  type ScanAnalytics,
+  type SegmentAnalytics
+} from "../_shared/analyticsEnhanced.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -267,14 +280,50 @@ async function identifyWithSimplifiedACRCloud(
       segmentsSuccessful: number,
       segmentsFailed: number
     }
-  }
+  },
+  analytics?: ScanAnalytics
 }> {
+  const scanStartTime = Date.now();
   const fileSize = arrayBuffer.byteLength;
+  const scanId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
-  console.log('\n=== AUDIO FINGERPRINT IDENTIFICATION ===');
+  console.log('\n=== ENHANCED AUDIO FINGERPRINT IDENTIFICATION ===');
+  console.log(`Scan ID: ${scanId}`);
   console.log(`File size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
-  console.log(`Deep Scan Mode: ${deepScan ? 'ENABLED (7 segments)' : 'DISABLED (3 segments)'}`);
-  console.log(`Matching Mode: ${matchingMode.toUpperCase()} (${matchingMode === 'strict' ? '≥85%' : '≥40%'} confidence)`);
+  console.log(`Deep Scan Mode: ${deepScan ? 'ENABLED (dynamic 7-8 segments)' : 'DISABLED (dynamic 4 segments)'}`);
+  console.log(`Matching Mode: ${matchingMode.toUpperCase()}`);
+  
+  // PHASE 0: Analyze beat characteristics for adaptive thresholds
+  console.log('\n🎼 PHASE 0: Beat Characteristics Analysis...');
+  const preprocessStartTime = Date.now();
+  
+  let beatCharacteristics;
+  let adaptiveThresholds;
+  
+  try {
+    const samples = new Float32Array(arrayBuffer);
+    const sampleRate = 44100; // Assume standard sample rate
+    
+    beatCharacteristics = analyzeBeatCharacteristics(samples, sampleRate);
+    console.log(`Detected characteristics: tempo=${beatCharacteristics.tempo}BPM, energy=${beatCharacteristics.energy.toFixed(2)}, complexity=${beatCharacteristics.spectralComplexity.toFixed(2)}`);
+    if (beatCharacteristics.genre) {
+      console.log(`Genre hint: ${beatCharacteristics.genre}`);
+    }
+    
+    adaptiveThresholds = calculateAdaptiveThresholds(beatCharacteristics, matchingMode);
+    console.log(`${adaptiveThresholds.explanation}`);
+  } catch (error) {
+    console.error('❌ Failed to analyze beat characteristics, using default thresholds:', error);
+    beatCharacteristics = { tempo: 120, energy: 0.5, spectralComplexity: 0.5 };
+    adaptiveThresholds = {
+      strict: 85,
+      loose: 40,
+      explanation: 'Using default thresholds (analysis failed)'
+    };
+  }
+  
+  const preprocessEndTime = Date.now();
+  const preprocessingMs = preprocessEndTime - preprocessStartTime;
   
   // PHASE 1: Check local fingerprint database first for instant matches
   console.log('\n🔍 PHASE 1: Checking local fingerprint database...');
@@ -379,35 +428,38 @@ async function identifyWithSimplifiedACRCloud(
     console.log('⚠️  Falling back to ACRCloud scan...\n');
   }
   
-  // PHASE 2: ACRCloud external scan (if no local matches found)
-  console.log('🌐 PHASE 2: ACRCloud external scan...');
+  // PHASE 2: ACRCloud external scan with dynamic segmentation (if no local matches found)
+  console.log('🌐 PHASE 2: ACRCloud external scan with dynamic segmentation...');
   
-  // Enhanced multi-resolution segment strategy
-  // Full audio + 15s, 20s, 30s segments at strategic positions
-  const segments = deepScan ? [
-    // Full audio scan (comprehensive)
-    { offset: 0, name: 'FULL AUDIO (0%)' },
-    // Early segments (catch intro/build)
-    { offset: Math.floor(fileSize * 0.1), name: '15s@10%' },
-    { offset: Math.floor(fileSize * 0.2), name: '20s@20%' },
-    // Mid segments (main drop/hook - most distinctive)
-    { offset: Math.floor(fileSize * 0.35), name: '30s@35%' },
-    { offset: Math.floor(fileSize * 0.5), name: '30s@50%' },
-    { offset: Math.floor(fileSize * 0.65), name: '20s@65%' },
-    // Late segments (outro/variations)
-    { offset: Math.floor(fileSize * 0.8), name: '20s@80%' },
-    { offset: Math.floor(fileSize * 0.9), name: '15s@90%' }
-  ] : [
-    // Standard scan: full + key positions
-    { offset: 0, name: 'FULL AUDIO (0%)' },
-    { offset: Math.floor(fileSize * 0.3), name: '30s@30%' },
-    { offset: Math.floor(fileSize * 0.6), name: '30s@60%' },
-    { offset: Math.floor(fileSize * 0.85), name: '15s@85%' }
-  ];
+  // Dynamic segment selection based on audio characteristics
+  const targetSegmentCount = deepScan ? 8 : 4;
+  let segments: AudioSegment[];
   
-  console.log(`Scanning ${segments.length} segments: ${segments.map(s => s.name).join(', ')}\n`);
+  try {
+    segments = selectDynamicSegments(arrayBuffer, targetSegmentCount, deepScan);
+    console.log(`✅ Selected ${segments.length} dynamic segments based on audio analysis`);
+  } catch (error) {
+    console.error('❌ Dynamic segmentation failed, using fixed positions:', error);
+    // Fallback to fixed positions
+    segments = deepScan ? [
+      { offset: 0, name: 'FULL AUDIO (0%)', duration: fileSize, energy: 0.5, uniqueness: 1, priority: 'high' as const },
+      { offset: Math.floor(fileSize * 0.1), name: '15s@10%', duration: 15 * 1024, energy: 0.4, uniqueness: 0.5, priority: 'medium' as const },
+      { offset: Math.floor(fileSize * 0.2), name: '20s@20%', duration: 20 * 1024, energy: 0.5, uniqueness: 0.6, priority: 'medium' as const },
+      { offset: Math.floor(fileSize * 0.35), name: '30s@35%', duration: 30 * 1024, energy: 0.7, uniqueness: 0.8, priority: 'high' as const },
+      { offset: Math.floor(fileSize * 0.5), name: '30s@50%', duration: 30 * 1024, energy: 0.8, uniqueness: 0.9, priority: 'high' as const },
+      { offset: Math.floor(fileSize * 0.65), name: '20s@65%', duration: 20 * 1024, energy: 0.6, uniqueness: 0.7, priority: 'medium' as const },
+      { offset: Math.floor(fileSize * 0.8), name: '20s@80%', duration: 20 * 1024, energy: 0.5, uniqueness: 0.6, priority: 'low' as const },
+      { offset: Math.floor(fileSize * 0.9), name: '15s@90%', duration: 15 * 1024, energy: 0.4, uniqueness: 0.5, priority: 'low' as const }
+    ] : [
+      { offset: 0, name: 'FULL AUDIO (0%)', duration: fileSize, energy: 0.5, uniqueness: 1, priority: 'high' as const },
+      { offset: Math.floor(fileSize * 0.3), name: '30s@30%', duration: 30 * 1024, energy: 0.6, uniqueness: 0.7, priority: 'high' as const },
+      { offset: Math.floor(fileSize * 0.6), name: '30s@60%', duration: 30 * 1024, energy: 0.7, uniqueness: 0.8, priority: 'medium' as const },
+      { offset: Math.floor(fileSize * 0.85), name: '15s@85%', duration: 15 * 1024, energy: 0.5, uniqueness: 0.6, priority: 'low' as const }
+    ];
+  }
   
   // Track ACRCloud segment success/failure
+  const matchingStartTime = Date.now();
   let acrcloudSuccessCount = 0;
   let acrcloudFailureCount = 0;
   
@@ -419,17 +471,20 @@ async function identifyWithSimplifiedACRCloud(
           if (results.length > 0) {
             acrcloudSuccessCount++;
           }
-          return results;
+          return { name: seg.name, results, energy: seg.energy, priority: seg.priority };
         })
         .catch(err => {
           console.error(`❌ ACRCloud segment ${seg.name} failed:`, err.message);
           acrcloudFailureCount++;
-          return [];
+          return { name: seg.name, results: [], energy: seg.energy, priority: seg.priority };
         })
     )
   );
   
-  const allTracks = segmentResults.flat();
+  const matchingEndTime = Date.now();
+  const matchingMs = matchingEndTime - matchingStartTime;
+  
+  const allTracks = segmentResults.flatMap(sr => sr.results);
   console.log(`\n📊 ACRCLOUD SEGMENT RESULTS:`);
   console.log(`  Total segments scanned: ${segments.length}`);
   console.log(`  Successful: ${acrcloudSuccessCount} (returned results)`);
@@ -438,12 +493,12 @@ async function identifyWithSimplifiedACRCloud(
   console.log(`  Raw tracks found: ${allTracks.length}\n`);
   
   // Log which segments returned results
-  segments.forEach((seg, i) => {
-    const count = segmentResults[i].length;
+  segmentResults.forEach(sr => {
+    const count = sr.results.length;
     if (count > 0) {
-      console.log(`  ✓ ${seg.name}: ${count} results`);
+      console.log(`  ✓ ${sr.name}: ${count} results`);
     } else {
-      console.log(`  ✗ ${seg.name}: no results`);
+      console.log(`  ✗ ${sr.name}: no results`);
     }
   });
   
@@ -473,11 +528,11 @@ async function identifyWithSimplifiedACRCloud(
   
   console.log(`\n📊 After deduplication: ${deduplicatedTracks.length} unique tracks`);
   
-  // Apply confidence filter based on matching mode
-  const MIN_CONFIDENCE = matchingMode === 'strict' ? 85 : 40;
+  // Apply adaptive confidence filter based on beat characteristics
+  const MIN_CONFIDENCE = matchingMode === 'strict' ? adaptiveThresholds.strict : adaptiveThresholds.loose;
   const filtered = deduplicatedTracks.filter(track => track.confidence >= MIN_CONFIDENCE);
   
-  console.log(`📊 After confidence filter (>=${MIN_CONFIDENCE}): ${filtered.length} tracks\n`);
+  console.log(`📊 After adaptive confidence filter (>=${MIN_CONFIDENCE}%): ${filtered.length} tracks\n`);
   
   // Log confidence distribution
   const confidenceScores = filtered.map(t => t.confidence);
