@@ -22,7 +22,7 @@ export const LandingCTA = () => {
           </h2>
           
           <p className="text-xl text-muted-foreground mb-6 max-w-2xl mx-auto">
-            Join the first 50 users and get Pro tier access completely free for 3 months!
+            Join the first 100 users and get Pro tier access completely free for 3 months!
           </p>
 
           <div className="flex gap-4 justify-center mb-6 flex-wrap">
