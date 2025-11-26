@@ -457,12 +457,12 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
               </div>
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
               <div className="absolute bottom-4 left-4 right-4">
-                <h3 className="font-bold text-lg text-foreground line-clamp-2">{match.title}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
+                <h3 className="font-bold text-lg text-white line-clamp-2 drop-shadow-lg">{match.title}</h3>
+                <p className="text-sm text-white/90 line-clamp-1 mt-1 drop-shadow-md">
                   {match.artist}
                 </p>
                 {match.album && (
-                  <p className="text-xs text-muted-foreground line-clamp-1 mt-1">
+                  <p className="text-xs text-white/80 line-clamp-1 mt-1 drop-shadow-md">
                     {match.album}
                   </p>
                 )}
