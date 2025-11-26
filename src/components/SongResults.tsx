@@ -2,6 +2,16 @@ import { Card } from "@/components/ui/card";
 import { Music, ExternalLink, Shield, Play, X, Flag, Lock, Download, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MatchingModeToggle } from "./MatchingModeToggle";
 import {
   DropdownMenu,
@@ -59,6 +69,10 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [matchingMode, setMatchingMode] = useState<'strict' | 'loose'>('strict');
   const [expandedMatchIndex, setExpandedMatchIndex] = useState<number | null>(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("");
+  const [providedUrl, setProvidedUrl] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
   const { plan } = useSubscription();
@@ -92,7 +106,16 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
     match.confidence && match.confidence < 70
   );
 
-  const handleReportMissingLink = async (match: Match, platform: string) => {
+  const openReportDialog = (match: Match, platform: string) => {
+    setSelectedMatch(match);
+    setSelectedPlatform(platform);
+    setProvidedUrl("");
+    setReportDialogOpen(true);
+  };
+
+  const handleReportMissingLink = async () => {
+    if (!selectedMatch || !selectedPlatform) return;
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -109,13 +132,14 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
         .from("missing_link_reports")
         .insert({
           user_id: user.id,
-          song_title: match.title,
-          artist: match.artist,
-          album: match.album,
-          reported_platform: platform,
-          spotify_id: match.spotify_id,
-          apple_music_id: match.apple_music_id,
-          youtube_id: match.youtube_id,
+          song_title: selectedMatch.title,
+          artist: selectedMatch.artist,
+          album: selectedMatch.album,
+          reported_platform: selectedPlatform,
+          spotify_id: selectedMatch.spotify_id,
+          apple_music_id: selectedMatch.apple_music_id,
+          youtube_id: selectedMatch.youtube_id,
+          user_provided_url: providedUrl || null,
         });
 
       if (error) {
@@ -130,8 +154,10 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
 
       toast({
         title: "Missing Link Reported",
-        description: `Thanks for reporting that "${match.title}" by ${match.artist} is available on ${platform}. We'll work on improving our matching.`,
+        description: `Thanks for reporting that "${selectedMatch.title}" by ${selectedMatch.artist} is available on ${selectedPlatform}. We'll work on improving our matching.`,
       });
+      
+      setReportDialogOpen(false);
     } catch (error) {
       console.error("Error reporting missing link:", error);
       toast({
@@ -666,17 +692,17 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="center" className="w-56">
                     {!match.spotify_url && (
-                      <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Spotify")}>
+                      <DropdownMenuItem onClick={() => openReportDialog(match, "Spotify")}>
                         Available on Spotify
                       </DropdownMenuItem>
                     )}
                     {!match.apple_music_url && (
-                      <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Apple Music")}>
+                      <DropdownMenuItem onClick={() => openReportDialog(match, "Apple Music")}>
                         Available on Apple Music
                       </DropdownMenuItem>
                     )}
                     {!match.youtube_url && (
-                      <DropdownMenuItem onClick={() => handleReportMissingLink(match, "YouTube")}>
+                      <DropdownMenuItem onClick={() => openReportDialog(match, "YouTube")}>
                         Available on YouTube
                       </DropdownMenuItem>
                     )}
@@ -714,6 +740,44 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
           </div>
         </Card>
       )}
+
+      {/* Report Missing Link Dialog */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Missing Link</DialogTitle>
+            <DialogDescription>
+              Help us improve by providing the link to "{selectedMatch?.title}" on {selectedPlatform}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="platform-url">
+                {selectedPlatform} Link (Optional)
+              </Label>
+              <Input
+                id="platform-url"
+                placeholder={`https://${selectedPlatform.toLowerCase().replace(' ', '')}.com/...`}
+                value={providedUrl}
+                onChange={(e) => setProvidedUrl(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                If you have the direct link to this song on {selectedPlatform}, paste it here to help us improve our matching
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReportMissingLink}>
+              Submit Report
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
