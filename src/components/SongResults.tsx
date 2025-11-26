@@ -110,15 +110,19 @@ const SongResults = ({ matches }: SongResultsProps) => {
     );
   }
 
-  // Separate high and low confidence matches
-  const highConfidenceMatches = matches.filter(m => !m.confidence || m.confidence >= 70);
-  const lowConfidenceMatches = matches.filter(m => m.confidence && m.confidence < 70);
+  // Separate high and low confidence matches and sort by confidence (popularity proxy)
+  const highConfidenceMatches = matches
+    .filter(m => !m.confidence || m.confidence >= 70)
+    .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+  const lowConfidenceMatches = matches
+    .filter(m => m.confidence && m.confidence < 70)
+    .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
   
   // Apply Free tier restrictions
   const isFree = plan === 'Free';
   const isPro = plan === 'Pro';
   
-  let displayedMatches = showLowConfidence ? matches : highConfidenceMatches;
+  let displayedMatches = showLowConfidence ? [...highConfidenceMatches, ...lowConfidenceMatches] : highConfidenceMatches;
   
   // Restrict Free users to limited results
   if (isFree && displayedMatches.length > FREE_TIER_LIMIT) {
