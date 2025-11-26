@@ -28,6 +28,11 @@ interface Match {
   album_cover_url?: string;
   preview_url?: string;
   popularity?: number;
+  debug_info?: {
+    raw_results_count?: number;
+    segments_found?: string[];
+    filtered_reason?: string;
+  };
 }
 
 interface BeatResult {
@@ -40,9 +45,10 @@ interface BeatInputProps {
   onMatchesFound: (matches: Match[]) => void;
   onBatchResults?: (results: BeatResult[]) => void;
   checkUploadLimit?: () => boolean;
+  debugMode?: boolean;
 }
 
-const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInputProps) => {
+const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode = false }: BeatInputProps) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [isComplete, setIsComplete] = useState(false);

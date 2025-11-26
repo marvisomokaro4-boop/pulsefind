@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Music2, LogOut, History as HistoryIcon, Shield, Crown } from "lucide-react";
+import { Music2, LogOut, History as HistoryIcon, Shield, Crown, Bug } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { PulseFindLogo } from "@/components/PulseFindLogo";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { PromoCounter } from "@/components/PromoCounter";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface Match {
   title: string;
@@ -36,6 +38,12 @@ interface Match {
   is_ai_suggestion?: boolean;
   ai_confidence?: 'high' | 'medium' | 'low';
   ai_reasoning?: string;
+  // Debug info
+  debug_info?: {
+    raw_results_count?: number;
+    segments_found?: string[];
+    filtered_reason?: string;
+  };
 }
 
 interface BeatResult {
@@ -53,6 +61,7 @@ const Index = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [monthlyUploads, setMonthlyUploads] = useState(0);
+  const [debugMode, setDebugMode] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { plan, scansPerDay, isLoading } = useSubscription();
@@ -282,10 +291,27 @@ const Index = () => {
             </Badge>
           </div>
         )}
+        
+        {/* Debug Mode Toggle */}
+        {isAdmin && (
+          <div className="mb-6 flex items-center justify-center gap-2">
+            <Switch
+              id="debug-mode"
+              checked={debugMode}
+              onCheckedChange={setDebugMode}
+            />
+            <Label htmlFor="debug-mode" className="flex items-center gap-2 cursor-pointer">
+              <Bug className="w-4 h-4" />
+              Debug Mode (Show Raw ACRCloud Results)
+            </Label>
+          </div>
+        )}
+        
         <BeatInput 
           onMatchesFound={handleMatchesFound}
           onBatchResults={handleBatchResults}
           checkUploadLimit={checkUploadLimit}
+          debugMode={debugMode}
         />
       </section>
 
@@ -302,7 +328,7 @@ const Index = () => {
       {/* Results Section */}
       {hasSearched && (
         <section className="container mx-auto px-4 pb-16">
-          {matches.length > 0 && <SongResults matches={matches} />}
+          {matches.length > 0 && <SongResults matches={matches} debugMode={debugMode} />}
           {batchResults.length > 0 && <BatchResults results={batchResults} />}
         </section>
       )}

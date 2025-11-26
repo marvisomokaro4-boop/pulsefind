@@ -33,13 +33,19 @@ interface Match {
   album_cover_url?: string;
   preview_url?: string;
   popularity?: number;
+  debug_info?: {
+    raw_results_count?: number;
+    segments_found?: string[];
+    filtered_reason?: string;
+  };
 }
 
 interface SongResultsProps {
   matches: Match[];
+  debugMode?: boolean;
 }
 
-const SongResults = ({ matches }: SongResultsProps) => {
+const SongResults = ({ matches, debugMode = false }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -143,6 +149,19 @@ const SongResults = ({ matches }: SongResultsProps) => {
 
   return (
     <div className="space-y-6">
+      {/* Debug Mode Banner */}
+      {debugMode && (
+        <Card className="p-4 bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+            <h3 className="font-semibold text-yellow-900 dark:text-yellow-100">Debug Mode Active</h3>
+          </div>
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            Showing raw ACRCloud results with detailed matching information. This view displays all data returned from the fingerprinting service before filtering.
+          </p>
+        </Card>
+      )}
+      
       <div className="text-center px-4">
         <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your Beat</h2>
         <p className="text-sm sm:text-base text-muted-foreground">
@@ -250,6 +269,24 @@ const SongResults = ({ matches }: SongResultsProps) => {
                 )}
               </div>
             </div>
+            
+            {/* Debug Information */}
+            {debugMode && match.debug_info && (
+              <div className="px-4 py-3 bg-yellow-50 dark:bg-yellow-950/50 border-t border-yellow-200 dark:border-yellow-800">
+                <h4 className="text-sm font-semibold text-yellow-900 dark:text-yellow-100 mb-2">Debug Info</h4>
+                <div className="text-xs space-y-1 text-yellow-800 dark:text-yellow-200">
+                  {match.debug_info.raw_results_count && (
+                    <p>• Raw ACRCloud matches: {match.debug_info.raw_results_count}</p>
+                  )}
+                  {match.debug_info.segments_found && match.debug_info.segments_found.length > 0 && (
+                    <p>• Found in segments: {match.debug_info.segments_found.join(', ')}</p>
+                  )}
+                  {match.debug_info.filtered_reason && (
+                    <p>• Filter status: {match.debug_info.filtered_reason}</p>
+                  )}
+                </div>
+              </div>
+            )}
             
             <div className="p-4 space-y-3">
               {match.preview_url && (
