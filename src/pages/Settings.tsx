@@ -186,39 +186,6 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Logo Customization</CardTitle>
-            <CardDescription>Personalize your logo design</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Button 
-              onClick={() => navigate('/logo-picker')}
-              className="w-full sm:w-auto"
-            >
-              <Palette className="mr-2 h-4 w-4" />
-              Customize Logo
-            </Button>
-            <Button 
-              onClick={downloadCurrentLogo}
-              variant="outline"
-              disabled={downloadingLogo}
-              className="w-full sm:w-auto"
-            >
-              {downloadingLogo ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Downloading...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Current Logo
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
