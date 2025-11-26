@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -51,6 +52,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
   const [beatYear, setBeatYear] = useState<string>("");
   const [searchAllTime, setSearchAllTime] = useState(false);
   const [currentFileSize, setCurrentFileSize] = useState<number>(0);
+  const [searchMode, setSearchMode] = useState<"beat" | "producer-tag">("beat");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { scansPerDay, refreshSubscription } = useSubscription();
@@ -337,13 +339,26 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
           </div>
         </div>
 
+        {/* Search Mode Tabs */}
+        <Tabs value={searchMode} onValueChange={(value) => setSearchMode(value as "beat" | "producer-tag")} className="w-full max-w-md mx-auto">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="beat">Beat Search</TabsTrigger>
+            <TabsTrigger value="producer-tag">Producer Tag Search</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         <div className="px-4">
-          <h2 className="text-xl sm:text-2xl font-bold mb-2">Upload Your Beat</h2>
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">
+            {searchMode === "beat" ? "Upload Your Beat" : "Upload Your Producer Tag"}
+          </h2>
           <p className="text-sm sm:text-base text-muted-foreground">
-            Upload your full producer beat to find which songs are using it
+            {searchMode === "beat" 
+              ? "Upload your full producer beat to find which songs are using it"
+              : "Upload your producer tag audio (like \"Metro Boomin want some more\") to find all songs containing it"
+            }
           </p>
           <p className="text-xs text-muted-foreground mt-2">
-            We'll automatically analyze your beat • Max 50MB
+            We'll automatically analyze your audio • Max 50MB
           </p>
         </div>
 
@@ -399,7 +414,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
               className="w-full max-w-sm group"
             >
               <Upload className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-              Choose Audio File(s)
+              {searchMode === "beat" ? "Choose Audio File(s)" : "Choose Producer Tag(s)"}
             </Button>
             <p className="text-xs text-muted-foreground">
               Select multiple files for batch analysis
@@ -438,7 +453,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
               variant="outline"
               className="mt-4"
             >
-              Search Another Beat
+              {searchMode === "beat" ? "Search Another Beat" : "Search Another Tag"}
             </Button>
           </div>
         )}
