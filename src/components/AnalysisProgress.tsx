@@ -1,5 +1,5 @@
 import { Progress } from "@/components/ui/progress";
-import { Activity, Loader2 } from "lucide-react";
+import { Music, Radio, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface AnalysisProgressProps {
@@ -9,14 +9,14 @@ interface AnalysisProgressProps {
 
 const AnalysisProgress = ({ fileName, fileSize }: AnalysisProgressProps) => {
   const [currentSegment, setCurrentSegment] = useState(1);
+  const [pulseScale, setPulseScale] = useState(1);
   
-  // Calculate estimated segment count based on file size
-  // 500KB per segment with 250KB overlap = ~250KB effective per segment
-  const estimatedSegments = Math.ceil(fileSize / (250 * 1024));
+  // Calculate estimated segment count - simplified with 512KB segments and 50% overlap
+  const estimatedSegments = Math.ceil(fileSize / (256 * 1024));
   
   // Animate through segments
   useEffect(() => {
-    const segmentDuration = 400; // ms per segment animation
+    const segmentDuration = 300; // ms per segment animation
     const interval = setInterval(() => {
       setCurrentSegment(prev => {
         if (prev >= estimatedSegments) {
@@ -30,58 +30,108 @@ const AnalysisProgress = ({ fileName, fileSize }: AnalysisProgressProps) => {
     return () => clearInterval(interval);
   }, [estimatedSegments]);
 
+  // Pulse animation effect
+  useEffect(() => {
+    const pulseInterval = setInterval(() => {
+      setPulseScale(prev => prev === 1 ? 1.05 : 1);
+    }, 800);
+    return () => clearInterval(pulseInterval);
+  }, []);
+
   const progress = (currentSegment / estimatedSegments) * 100;
 
   return (
-    <div className="py-8 space-y-6">
-      <div className="flex justify-center">
-        <div className="relative">
-          <Loader2 className="w-16 h-16 animate-spin text-primary" />
-          <Activity className="w-8 h-8 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+    <div className="py-10 px-4 space-y-8 animate-fade-in">
+      {/* Animated Icon Section */}
+      <div className="flex justify-center relative">
+        {/* Outer glow ring */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-32 h-32 rounded-full bg-primary/10 animate-pulse" />
+        </div>
+        
+        {/* Middle ring */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div 
+            className="w-24 h-24 rounded-full border-2 border-primary/30 animate-spin"
+            style={{ animationDuration: '3s' }}
+          />
+        </div>
+        
+        {/* Inner animated icons */}
+        <div className="relative z-10 flex items-center justify-center w-20 h-20">
+          <div 
+            className="absolute inset-0 flex items-center justify-center transition-transform duration-300"
+            style={{ transform: `scale(${pulseScale})` }}
+          >
+            <Music className="w-10 h-10 text-primary" />
+          </div>
+          <Radio className="w-5 h-5 text-primary/60 absolute top-0 right-0 animate-pulse" />
+          <Sparkles className="w-4 h-4 text-primary/60 absolute bottom-0 left-0 animate-pulse" style={{ animationDelay: '0.3s' }} />
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <p className="font-semibold text-lg">Analyzing Beat Segments</p>
+      {/* Content Section */}
+      <div className="space-y-4 max-w-lg mx-auto">
+        <div className="space-y-2 text-center">
+          <h3 className="font-bold text-xl bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">
+            Analyzing Your Beat
+          </h3>
           {fileName && (
-            <p className="text-sm text-muted-foreground truncate max-w-md mx-auto">
+            <p className="text-sm text-muted-foreground truncate px-4 animate-fade-in">
               {fileName}
             </p>
           )}
         </div>
 
-        <div className="space-y-2">
+        {/* Progress Section */}
+        <div className="space-y-3 bg-card/50 backdrop-blur-sm rounded-lg p-4 border border-border/50">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Progress</span>
-            <span className="font-mono font-semibold text-primary">
-              Segment {currentSegment} / {estimatedSegments}
+            <span className="text-muted-foreground font-medium">Scanning Progress</span>
+            <span className="font-mono font-bold text-primary tabular-nums">
+              {Math.round(progress)}%
             </span>
           </div>
-          <Progress value={progress} className="h-2" />
+          
+          <div className="relative">
+            <Progress value={progress} className="h-3 bg-muted/50" />
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[slide-in-right_1.5s_ease-in-out_infinite]" />
+          </div>
+          
+          <div className="flex justify-between items-center text-xs text-muted-foreground">
+            <span>Segment {currentSegment}</span>
+            <span>of {estimatedSegments}</span>
+          </div>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-2 pt-2">
-          {Array.from({ length: Math.min(estimatedSegments, 20) }).map((_, i) => (
+        {/* Segment Dots Visualization */}
+        <div className="flex flex-wrap justify-center gap-1.5 py-3">
+          {Array.from({ length: Math.min(estimatedSegments, 24) }).map((_, i) => (
             <div
               key={i}
-              className={`h-1 w-8 rounded-full transition-all duration-300 ${
+              className={`h-2 w-2 rounded-full transition-all duration-500 ${
                 i < currentSegment
-                  ? 'bg-primary shadow-[0_0_8px_hsl(var(--primary))]'
-                  : 'bg-muted'
+                  ? 'bg-primary scale-100 shadow-[0_0_6px_hsl(var(--primary))]'
+                  : 'bg-muted/40 scale-75'
               }`}
+              style={{ 
+                transitionDelay: `${i * 20}ms`,
+              }}
             />
           ))}
-          {estimatedSegments > 20 && (
-            <span className="text-xs text-muted-foreground">
-              +{estimatedSegments - 20} more
+          {estimatedSegments > 24 && (
+            <span className="text-xs text-muted-foreground ml-2 self-center">
+              +{estimatedSegments - 24}
             </span>
           )}
         </div>
 
-        <p className="text-xs text-muted-foreground pt-2">
-          Scanning through entire beat with overlapping segments for maximum accuracy
-        </p>
+        {/* Status Message */}
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground/80 leading-relaxed">
+            Scanning audio fingerprint across multiple segments<br/>
+            for maximum detection accuracy
+          </p>
+        </div>
       </div>
     </div>
   );
