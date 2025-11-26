@@ -811,57 +811,46 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
 
     console.log(`After deduplication: ${uniqueTracks.length} unique tracks`);
     
-    // Log raw results for debugging
-    console.log('=== VALIDATION REPORT ===');
-    console.log(`Total raw results before filtering: ${uniqueTracks.length}`);
+    // Add confidence level labels instead of filtering
+    console.log('=== CONFIDENCE LABELING ===');
+    console.log(`Total results: ${uniqueTracks.length}`);
     
-    // Apply validation rules to reduce false positives
-    const validationStats = {
-      lowConfidence: 0,
-      missingMetadata: 0,
-      durationMismatch: 0,
-      shortPlayDuration: 0,
-    };
+    const results = uniqueTracks
+      .filter(track => {
+        // ONLY filter out results with missing critical metadata
+        if (!track.title || !track.artist) {
+          console.log(`❌ Skipped: Missing title or artist`);
+          return false;
+        }
+        return true;
+      })
+      .map(track => {
+        // Add confidence level label
+        let matchQuality: 'high' | 'medium' | 'low';
+        if (track.confidence >= 85) {
+          matchQuality = 'high';
+        } else if (track.confidence >= 60) {
+          matchQuality = 'medium';
+        } else {
+          matchQuality = 'low';
+        }
+        
+        console.log(`✅ Including: "${track.title}" by ${track.artist} (${track.confidence}% - ${matchQuality} match)`);
+        
+        return {
+          ...track,
+          match_quality: matchQuality
+        };
+      });
     
-    let results = uniqueTracks.filter(track => {
-      // Rule 1: Minimum confidence score of 40 (balanced threshold)
-      if (track.confidence < 40) {
-        validationStats.lowConfidence++;
-        console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Low confidence (${track.confidence}%)`);
-        return false;
-      }
-      
-      // Rule 2: Must have valid metadata (title and artist required, ISRC optional)
-      if (!track.title || !track.artist) {
-        validationStats.missingMetadata++;
-        console.log(`❌ Rejected: "${track.title || 'Unknown'}" - Missing title or artist`);
-        return false;
-      }
-      
-      // Rule 3: Duration validation (if available) - allow reasonable variation
-      if (track.duration_diff && track.duration_diff > 10) {
-        validationStats.durationMismatch++;
-        console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Duration mismatch (${track.duration_diff.toFixed(1)}s diff)`);
-        return false;
-      }
-      
-      // Rule 4: Played duration must be >= 8 seconds (if available)
-      if (track.played_duration && track.played_duration < 8) {
-        validationStats.shortPlayDuration++;
-        console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Insufficient match duration (${track.played_duration.toFixed(1)}s)`);
-        return false;
-      }
-      
-      console.log(`✅ Accepted: "${track.title}" by ${track.artist} (${track.confidence}% confidence)`);
-      return true;
-    });
-    
-    console.log(`=== FILTERING STATS ===`);
-    console.log(`Rejected due to low confidence (<70%): ${validationStats.lowConfidence}`);
-    console.log(`Rejected due to missing metadata: ${validationStats.missingMetadata}`);
-    console.log(`Rejected due to duration mismatch (>5s): ${validationStats.durationMismatch}`);
-    console.log(`Rejected due to short play duration (<10s): ${validationStats.shortPlayDuration}`);
-    console.log(`Final valid results: ${results.length} tracks`);
+    console.log(`=== RESULTS SUMMARY ===`);
+    console.log(`Total matches returned: ${results.length}`);
+    const highMatches = results.filter(r => r.match_quality === 'high').length;
+    const mediumMatches = results.filter(r => r.match_quality === 'medium').length;
+    const lowMatches = results.filter(r => r.match_quality === 'low').length;
+    console.log(`High confidence (≥85%): ${highMatches}`);
+    console.log(`Medium confidence (60-84%): ${mediumMatches}`);
+    console.log(`Low confidence (<60%): ${lowMatches}`);
     
     // Track average score
     if (results.length > 0) {
@@ -869,17 +858,12 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
       metrics.averageScore = (metrics.averageScore * metrics.totalScans + avgScore) / (metrics.totalScans + 1);
     }
     
-    // Sort by confidence, then by priority
-    results.sort((a, b) => {
-      if (b.confidence !== a.confidence) return b.confidence - a.confidence;
-      if (a.priority === 'high' && b.priority !== 'high') return -1;
-      if (b.priority === 'high' && a.priority !== 'high') return 1;
-      return 0;
-    });
+    // Sort by confidence (highest first) - always return best matches
+    results.sort((a, b) => b.confidence - a.confidence);
     
-    // Return top 99 matches
-    const topMatches = results.slice(0, 99);
-    console.log(`Returning ${topMatches.length} matches`);
+    // Return top 50 matches regardless of confidence
+    const topMatches = results.slice(0, 50);
+    console.log(`Returning top ${topMatches.length} matches sorted by confidence`);
     
     return topMatches;
   } catch (error) {
