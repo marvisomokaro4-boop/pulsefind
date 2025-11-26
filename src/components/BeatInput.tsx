@@ -139,11 +139,17 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
       // Add matching mode
       formData.append('matchingMode', matchingMode);
 
+      // Get user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
       // Call the identify-beat edge function
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/identify-beat`,
         {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token || ''}`,
+          },
           body: formData,
         }
       );
