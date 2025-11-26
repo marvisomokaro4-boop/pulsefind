@@ -436,14 +436,15 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
   const meanEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
   const energyVariance = energies.reduce((sum, e) => sum + Math.pow(e - meanEnergy, 2), 0) / energies.length;
   
-  // Quality scoring
-  const SILENCE_THRESHOLD = 0.01; // RMS threshold for silence
-  const NOISE_ZCR_THRESHOLD = 0.15; // High ZCR indicates noise
-  const MIN_PEAK_THRESHOLD = 0.1; // Minimum peak for usable audio
+  // Quality scoring - adjusted thresholds to be more lenient for producer tags and vocals
+  const SILENCE_THRESHOLD = 0.005; // Lowered to catch quieter audio
+  const NOISE_ZCR_THRESHOLD = 0.25; // Raised - vocals have high ZCR but aren't noise
+  const MIN_PEAK_THRESHOLD = 0.05; // Lowered to allow quieter content
   const LOW_VARIANCE_THRESHOLD = 0.0001; // Very low variance = likely silence or noise
   
   const isSilent = rms < SILENCE_THRESHOLD || peakLevel < MIN_PEAK_THRESHOLD;
-  const isNoisy = zeroCrossingRate > NOISE_ZCR_THRESHOLD && rms < 0.05;
+  // More lenient noise detection - only mark as noisy if VERY high ZCR AND very low energy
+  const isNoisy = zeroCrossingRate > NOISE_ZCR_THRESHOLD && rms < 0.02;
   const hasLowVariance = energyVariance < LOW_VARIANCE_THRESHOLD;
   
   // Calculate overall quality score (0-100)
@@ -467,7 +468,8 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
     score += varianceScore;
   }
   
-  const isUsable = !isSilent && !isNoisy && score >= 30;
+  // Lower minimum score threshold to allow more segments through
+  const isUsable = !isSilent && !isNoisy && score >= 20;
   
     return {
       score: Math.round(score),
