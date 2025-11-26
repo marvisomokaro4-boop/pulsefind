@@ -240,17 +240,30 @@ async function identifySegmentWithACRCloud(
 }
 
 /**
- * SIMPLIFIED APPROACH: 3 segments only (start, middle, end)
- * No overlap, no preprocessing, no complex filtering
+ * Improved scanning with deep scan mode and caching
  */
-async function identifyWithSimplifiedACRCloud(arrayBuffer: ArrayBuffer, fileName: string): Promise<{ results: any[], metrics: ScanMetrics }> {
+async function identifyWithSimplifiedACRCloud(
+  arrayBuffer: ArrayBuffer, 
+  fileName: string,
+  deepScan: boolean = false,
+  supabaseClient: any
+): Promise<{ results: any[], metrics: ScanMetrics, fromCache: boolean }> {
   const fileSize = arrayBuffer.byteLength;
   
   console.log('\n=== SIMPLIFIED ACRCLOUD SCANNING ===');
   console.log(`File size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+  console.log(`Deep Scan Mode: ${deepScan ? 'ENABLED (7 segments)' : 'DISABLED (3 segments)'}`);
   
-  // Define 3 segments: Start (0%), Middle (50%), End (90%)
-  const segments = [
+  // Define segments based on scan mode
+  const segments = deepScan ? [
+    { offset: 0, name: 'START (0%)' },
+    { offset: Math.floor(fileSize * 0.2), name: 'EARLY (20%)' },
+    { offset: Math.floor(fileSize * 0.35), name: 'MID-EARLY (35%)' },
+    { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
+    { offset: Math.floor(fileSize * 0.65), name: 'MID-LATE (65%)' },
+    { offset: Math.floor(fileSize * 0.8), name: 'LATE (80%)' },
+    { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
+  ] : [
     { offset: 0, name: 'START (0%)' },
     { offset: Math.floor(fileSize * 0.5), name: 'MIDDLE (50%)' },
     { offset: Math.floor(fileSize * 0.9), name: 'END (90%)' }
@@ -258,7 +271,7 @@ async function identifyWithSimplifiedACRCloud(arrayBuffer: ArrayBuffer, fileName
   
   console.log(`Scanning ${segments.length} segments: ${segments.map(s => s.name).join(', ')}\n`);
   
-  // Scan all 3 segments in parallel
+  // Scan all segments in parallel (for maximum speed)
   const segmentResults = await Promise.all(
     segments.map(seg => identifySegmentWithACRCloud(arrayBuffer, fileName, seg.offset, seg.name))
   );
@@ -323,8 +336,34 @@ async function identifyWithSimplifiedACRCloud(arrayBuffer: ArrayBuffer, fileName
     console.log(`  Low (50-59%): ${confidenceScores.filter(s => s >= 50 && s < 60).length}\n`);
   }
   
-  // Sort by confidence (highest first)
-  filtered.sort((a, b) => b.confidence - a.confidence);
+  console.log('=== SCAN COMPLETE ===\n');
+  
+  // Cache results to beat_fingerprints table for future lookups
+  if (filtered.length > 0 && supabaseClient) {
+    console.log('💾 Caching results to database...');
+    for (const track of filtered) {
+      try {
+        await supabaseClient
+          .from('beat_fingerprints')
+          .upsert({
+            fingerprint_hash: track.isrc || `${track.title}|||${track.artist}`,
+            song_title: track.title,
+            artist: track.artist,
+            album: track.album,
+            confidence_score: track.confidence,
+            source: 'acrcloud',
+            isrc: track.isrc,
+            spotify_id: track.spotify_id,
+            apple_music_id: track.apple_music_id,
+            youtube_id: track.youtube_id,
+            release_date: track.release_date,
+          }, { onConflict: 'fingerprint_hash' });
+      } catch (err) {
+        console.error('Failed to cache track:', err);
+      }
+    }
+    console.log(`✅ Cached ${filtered.length} tracks\n`);
+  }
   
   const metrics: ScanMetrics = {
     segmentsScanned: segments.length,
@@ -333,9 +372,7 @@ async function identifyWithSimplifiedACRCloud(arrayBuffer: ArrayBuffer, fileName
     confidenceScores
   };
   
-  console.log('=== SCAN COMPLETE ===\n');
-  
-  return { results: filtered, metrics };
+  return { results: filtered, metrics, fromCache: false };
 }
 
 serve(async (req) => {
@@ -366,6 +403,7 @@ serve(async (req) => {
 
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
+    const deepScan = formData.get('deepScan') === 'true';
 
     if (!audioFile) {
       return new Response(
@@ -381,8 +419,18 @@ serve(async (req) => {
 
     const arrayBuffer = await audioFile.arrayBuffer();
     
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    
     // Run simplified ACRCloud scanning
-    const { results: matches, metrics } = await identifyWithSimplifiedACRCloud(arrayBuffer, audioFile.name);
+    const { results: matches, metrics, fromCache } = await identifyWithSimplifiedACRCloud(
+      arrayBuffer, 
+      audioFile.name,
+      deepScan,
+      supabaseClient
+    );
 
     if (matches.length === 0) {
       console.log('❌ No matches found\n');
@@ -433,12 +481,20 @@ serve(async (req) => {
         }
       }
     }
+    
+    // Sort by popularity (highest first) if available
+    matches.sort((a, b) => {
+      const popA = a.popularity || 0;
+      const popB = b.popularity || 0;
+      return popB - popA;
+    });
 
     return new Response(
       JSON.stringify({ 
         matches,
         total: matches.length,
-        metrics
+        metrics,
+        fromCache
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
