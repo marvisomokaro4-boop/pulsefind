@@ -659,12 +659,29 @@ serve(async (req) => {
       }
     }
     
-    // Sort by popularity (highest first) if available
+    // Intelligent ranking: prioritize cross-platform validation
+    // Formula: (source_count * 1000) + (confidence * 10) + (popularity_normalized)
+    // Multi-source matches will ALWAYS rank higher than single-source due to 1000x weight
     matches.sort((a, b) => {
+      const sourceCountA = a.sources?.length || 1;
+      const sourceCountB = b.sources?.length || 1;
+      const confidenceA = a.confidence || 0;
+      const confidenceB = b.confidence || 0;
       const popA = a.popularity || 0;
       const popB = b.popularity || 0;
-      return popB - popA;
+      
+      // Calculate ranking score for each match
+      const scoreA = (sourceCountA * 1000) + (confidenceA * 10) + (popA / 100);
+      const scoreB = (sourceCountB * 1000) + (confidenceB * 10) + (popB / 100);
+      
+      return scoreB - scoreA; // Higher score = better rank
     });
+    
+    console.log('🏆 RANKING APPLIED:');
+    const multiSource = matches.filter(m => m.sources && m.sources.length > 1).length;
+    const singleSource = matches.filter(m => !m.sources || m.sources.length === 1).length;
+    console.log(`  Multi-source matches (higher priority): ${multiSource}`);
+    console.log(`  Single-source matches: ${singleSource}\n`);
 
     return new Response(
       JSON.stringify({ 
