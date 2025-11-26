@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import ConfidenceFilter from "./ConfidenceFilter";
+import ConfidenceSlider from "./ConfidenceSlider";
 import AlbumCover from "./AlbumCover";
 import AudioPreview from "./AudioPreview";
 import { useState } from "react";
@@ -34,7 +35,8 @@ interface Match {
   preview_url?: string;
   popularity?: number;
   match_quality?: 'high' | 'medium' | 'low';
-  cached?: boolean; // NEW: indicates if result came from local fingerprint database
+  cached?: boolean;
+  segment?: string; // Which segment found this match
   debug_info?: {
     raw_results_count?: number;
     segments_found?: string[];
@@ -50,11 +52,33 @@ interface SongResultsProps {
 
 const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongResultsProps) => {
   const [showLowConfidence, setShowLowConfidence] = useState(false);
+  const [minConfidence, setMinConfidence] = useState(50);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { plan } = useSubscription();
 
   const FREE_TIER_LIMIT = 5;
+  
+  // Filter by minimum confidence threshold
+  const filteredMatches = matches.filter(match => 
+    !match.confidence || match.confidence >= minConfidence
+  );
+
+  // Sort by popularity first, then confidence
+  const sortedMatches = [...filteredMatches].sort((a, b) => {
+    const popA = a.popularity ?? 0;
+    const popB = b.popularity ?? 0;
+    if (popB !== popA) return popB - popA;
+    return (b.confidence || 0) - (a.confidence || 0);
+  });
+
+  const highConfidenceMatches = sortedMatches.filter(match => 
+    !match.confidence || match.confidence >= 70
+  );
+  
+  const lowConfidenceMatches = sortedMatches.filter(match => 
+    match.confidence && match.confidence < 70
+  );
 
   const handleReportMissingLink = async (match: Match, platform: string) => {
     try {
@@ -117,38 +141,19 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
       </div>
     );
   }
-
-  // Separate high and low confidence matches and sort by popularity (Spotify score)
-  const highConfidenceMatches = matches
-    .filter(m => !m.confidence || m.confidence >= 70)
-    .sort((a, b) => {
-      // Sort by popularity first (higher is better), then by confidence
-      const popA = a.popularity ?? 0;
-      const popB = b.popularity ?? 0;
-      if (popB !== popA) return popB - popA;
-      return (b.confidence || 0) - (a.confidence || 0);
-    });
-  const lowConfidenceMatches = matches
-    .filter(m => m.confidence && m.confidence < 70)
-    .sort((a, b) => {
-      const popA = a.popularity ?? 0;
-      const popB = b.popularity ?? 0;
-      if (popB !== popA) return popB - popA;
-      return (b.confidence || 0) - (a.confidence || 0);
-    });
   
   // Apply Free tier restrictions
   const isFree = plan === 'Free';
   const isPro = plan === 'Pro';
   
-  let displayedMatches = showLowConfidence ? [...highConfidenceMatches, ...lowConfidenceMatches] : highConfidenceMatches;
+  let displayedMatches = showLowConfidence ? sortedMatches : highConfidenceMatches;
   
   // Restrict Free users to limited results
   if (isFree && displayedMatches.length > FREE_TIER_LIMIT) {
     displayedMatches = displayedMatches.slice(0, FREE_TIER_LIMIT);
   }
   
-  const hasMoreResults = isFree && matches.length > FREE_TIER_LIMIT;
+  const hasMoreResults = isFree && filteredMatches.length > FREE_TIER_LIMIT;
 
   return (
     <div className="space-y-6">
@@ -182,9 +187,16 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
       <div className="text-center px-4">
         <h2 className="text-2xl sm:text-3xl font-bold mb-2">Songs Using Your {searchMode === 'beat' ? 'Beat' : 'Producer Tag'}</h2>
         <p className="text-sm sm:text-base text-muted-foreground">
-          Found {highConfidenceMatches.length} high-confidence match{highConfidenceMatches.length !== 1 ? 'es' : ''}
+          Found {filteredMatches.length} match{filteredMatches.length !== 1 ? 'es' : ''} ({highConfidenceMatches.length} high-confidence)
         </p>
       </div>
+
+      <ConfidenceSlider
+        minConfidence={minConfidence}
+        onMinConfidenceChange={setMinConfidence}
+        totalMatches={matches.length}
+        filteredCount={filteredMatches.length}
+      />
 
       <ConfidenceFilter
         showLowConfidence={showLowConfidence}
@@ -252,6 +264,14 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
                   >
                     <Shield className="w-3 h-3 mr-1" />
                     {Math.round(match.confidence)}%
+                  </Badge>
+                )}
+                {match.segment && (
+                  <Badge 
+                    variant="secondary" 
+                    className="backdrop-blur bg-blue-500/20 border-blue-500/30 text-blue-700 dark:text-blue-300 text-xs"
+                  >
+                    📍 {match.segment}
                   </Badge>
                 )}
                 {match.match_quality && (

@@ -29,7 +29,8 @@ interface Match {
   preview_url?: string;
   popularity?: number;
   match_quality?: 'high' | 'medium' | 'low';
-  cached?: boolean; // NEW: indicates if result came from local fingerprint database
+  cached?: boolean;
+  segment?: string; // Which segment found this match (e.g., "START (0%)")
   debug_info?: {
     raw_results_count?: number;
     segments_found?: string[];
@@ -63,6 +64,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
   const [searchAllTime, setSearchAllTime] = useState(false);
   const [currentFileSize, setCurrentFileSize] = useState<number>(0);
   const [searchMode, setSearchMode] = useState<"beat" | "producer-tag">("beat");
+  const [deepScanEnabled, setDeepScanEnabled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { scansPerDay, refreshSubscription } = useSubscription();
@@ -83,6 +85,11 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
       // Add debug mode flag
       if (disableDeduplication) {
         formData.append('disableDeduplication', 'true');
+      }
+      
+      // Add deep scan flag
+      if (deepScanEnabled) {
+        formData.append('deepScan', 'true');
       }
 
       // Call the identify-beat edge function
@@ -415,6 +422,23 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
               </p>
             </div>
           )}
+          
+          {/* Deep Scan Toggle */}
+          <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
+            <div className="flex-1">
+              <Label htmlFor="deepScan" className="text-sm font-medium cursor-pointer block">
+                Deep Scan Mode
+              </Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Scans 7 segments instead of 3 for more thorough analysis (slower)
+              </p>
+            </div>
+            <Switch
+              id="deepScan"
+              checked={deepScanEnabled}
+              onCheckedChange={setDeepScanEnabled}
+            />
+          </div>
         </div>
 
         <input
