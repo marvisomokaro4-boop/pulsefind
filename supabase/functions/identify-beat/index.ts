@@ -350,6 +350,120 @@ async function identifySegmentWithACRCloud(
   }
 }
 
+// Audio quality analysis functions
+interface AudioQualityScore {
+  score: number; // 0-100
+  rms: number;
+  peakLevel: number;
+  zeroCrossingRate: number;
+  energyVariance: number;
+  isSilent: boolean;
+  isNoisy: boolean;
+  isUsable: boolean;
+}
+
+function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: number): AudioQualityScore {
+  const samples = new Int16Array(audioData.slice(offset, offset + length));
+  const sampleCount = samples.length;
+  
+  if (sampleCount === 0) {
+    return {
+      score: 0,
+      rms: 0,
+      peakLevel: 0,
+      zeroCrossingRate: 0,
+      energyVariance: 0,
+      isSilent: true,
+      isNoisy: false,
+      isUsable: false
+    };
+  }
+
+  // Calculate RMS (Root Mean Square) - overall loudness
+  let sumSquares = 0;
+  let peakLevel = 0;
+  
+  for (let i = 0; i < sampleCount; i++) {
+    const normalized = samples[i] / 32768; // Normalize to -1 to 1
+    sumSquares += normalized * normalized;
+    peakLevel = Math.max(peakLevel, Math.abs(normalized));
+  }
+  
+  const rms = Math.sqrt(sumSquares / sampleCount);
+  
+  // Calculate zero-crossing rate - indicator of noise vs. tonal content
+  let zeroCrossings = 0;
+  for (let i = 1; i < sampleCount; i++) {
+    if ((samples[i] >= 0 && samples[i - 1] < 0) || (samples[i] < 0 && samples[i - 1] >= 0)) {
+      zeroCrossings++;
+    }
+  }
+  const zeroCrossingRate = zeroCrossings / sampleCount;
+  
+  // Calculate energy variance across the segment (measures consistency)
+  const windowSize = Math.floor(sampleCount / 10);
+  const energies: number[] = [];
+  
+  for (let i = 0; i < sampleCount; i += windowSize) {
+    let windowEnergy = 0;
+    const end = Math.min(i + windowSize, sampleCount);
+    
+    for (let j = i; j < end; j++) {
+      const normalized = samples[j] / 32768;
+      windowEnergy += normalized * normalized;
+    }
+    
+    energies.push(windowEnergy / (end - i));
+  }
+  
+  const meanEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
+  const energyVariance = energies.reduce((sum, e) => sum + Math.pow(e - meanEnergy, 2), 0) / energies.length;
+  
+  // Quality scoring
+  const SILENCE_THRESHOLD = 0.01; // RMS threshold for silence
+  const NOISE_ZCR_THRESHOLD = 0.15; // High ZCR indicates noise
+  const MIN_PEAK_THRESHOLD = 0.1; // Minimum peak for usable audio
+  const LOW_VARIANCE_THRESHOLD = 0.0001; // Very low variance = likely silence or noise
+  
+  const isSilent = rms < SILENCE_THRESHOLD || peakLevel < MIN_PEAK_THRESHOLD;
+  const isNoisy = zeroCrossingRate > NOISE_ZCR_THRESHOLD && rms < 0.05;
+  const hasLowVariance = energyVariance < LOW_VARIANCE_THRESHOLD;
+  
+  // Calculate overall quality score (0-100)
+  let score = 0;
+  
+  if (!isSilent) {
+    // RMS contribution (40 points): louder is better, but not clipping
+    const rmsScore = Math.min(rms / 0.3, 1) * 40;
+    score += rmsScore;
+    
+    // Peak level contribution (20 points): good dynamic range
+    const peakScore = (peakLevel > 0.1 && peakLevel < 0.95) ? 20 : peakLevel * 10;
+    score += peakScore;
+    
+    // Zero-crossing rate contribution (20 points): prefer musical content
+    const zcrScore = zeroCrossingRate < NOISE_ZCR_THRESHOLD ? 20 : Math.max(0, 20 - (zeroCrossingRate * 100));
+    score += zcrScore;
+    
+    // Energy variance contribution (20 points): prefer consistent, varied audio
+    const varianceScore = energyVariance > LOW_VARIANCE_THRESHOLD ? Math.min(energyVariance * 10000, 20) : 0;
+    score += varianceScore;
+  }
+  
+  const isUsable = !isSilent && !isNoisy && score >= 30;
+  
+  return {
+    score: Math.round(score),
+    rms: Math.round(rms * 1000) / 1000,
+    peakLevel: Math.round(peakLevel * 1000) / 1000,
+    zeroCrossingRate: Math.round(zeroCrossingRate * 1000) / 1000,
+    energyVariance: Math.round(energyVariance * 100000) / 100000,
+    isSilent,
+    isNoisy,
+    isUsable
+  };
+}
+
 // Normalize strings for fuzzy matching
 function normalizeForMatching(str: string): string {
   return str.toLowerCase()
@@ -389,23 +503,43 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     const segmentSize = 500 * 1024; // 500KB per segment
     const overlapSize = 250 * 1024; // 250KB overlap
     
-    console.log(`Analyzing entire beat: ${fileSize} bytes with smart segment prioritization`);
+    console.log(`Analyzing entire beat: ${fileSize} bytes with audio quality analysis`);
     
-    // Calculate all segment positions
-    const segmentPositions: Array<{ offset: number; priority: 'high' | 'normal' }> = [];
+    // Calculate all segment positions with quality analysis
+    const segmentPositions: Array<{ 
+      offset: number; 
+      priority: 'high' | 'normal'; 
+      quality?: AudioQualityScore;
+      skip?: boolean;
+    }> = [];
     let offset = 0;
     let segmentIndex = 0;
+    
+    console.log('Starting audio quality pre-analysis...');
     
     while (offset < fileSize) {
       const remainingBytes = fileSize - offset;
       const percentage = (offset / fileSize) * 100;
+      const currentSegmentSize = Math.min(segmentSize, remainingBytes);
+      
+      // Analyze audio quality for this segment
+      const quality = analyzeAudioQuality(arrayBuffer, offset, currentSegmentSize);
       
       // Strategic positions: beginning (0-10%), middle (45-55%), end (90-100%)
       const isStrategic = percentage < 10 || (percentage > 45 && percentage < 55) || percentage > 90;
       
+      // Decide if we should skip this segment based on quality
+      const shouldSkip = !quality.isUsable && !isStrategic; // Never skip strategic segments
+      
+      if (shouldSkip) {
+        console.log(`Skipping segment ${segmentIndex + 1} at ${Math.round(percentage)}% (quality score: ${quality.score}, silent: ${quality.isSilent}, noisy: ${quality.isNoisy})`);
+      }
+      
       segmentPositions.push({
         offset,
-        priority: isStrategic ? 'high' : 'normal'
+        priority: isStrategic ? 'high' : 'normal',
+        quality,
+        skip: shouldSkip
       });
       
       segmentIndex++;
@@ -414,11 +548,21 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
       if (remainingBytes <= segmentSize) break;
     }
     
-    console.log(`Created ${segmentPositions.length} segments (${segmentPositions.filter(s => s.priority === 'high').length} high priority)`);
-
-    // Process high priority segments first
-    const highPrioritySegments = segmentPositions.filter(s => s.priority === 'high');
-    const normalPrioritySegments = segmentPositions.filter(s => s.priority === 'normal');
+    // Filter out skipped segments
+    const usableSegments = segmentPositions.filter(s => !s.skip);
+    const skippedCount = segmentPositions.length - usableSegments.length;
+    
+    console.log(`Quality analysis complete: ${usableSegments.length} usable segments (skipped ${skippedCount} poor quality segments)`);
+    console.log(`High priority segments: ${usableSegments.filter(s => s.priority === 'high').length}`);
+    
+    // Process high priority segments first (sorted by quality)
+    const highPrioritySegments = usableSegments
+      .filter(s => s.priority === 'high')
+      .sort((a, b) => (b.quality?.score || 0) - (a.quality?.score || 0));
+      
+    const normalPrioritySegments = usableSegments
+      .filter(s => s.priority === 'normal')
+      .sort((a, b) => (b.quality?.score || 0) - (a.quality?.score || 0));
     
     // Process in batches to manage memory
     const batchSize = 5;
@@ -427,15 +571,16 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Process high priority first
     for (let i = 0; i < highPrioritySegments.length; i += batchSize) {
       const batch = highPrioritySegments.slice(i, i + batchSize);
-      const batchPromises = batch.map((seg, idx) => 
-        identifySegmentWithACRCloud(
+      const batchPromises = batch.map((seg, idx) => {
+        const qualityInfo = seg.quality ? ` Q:${seg.quality.score}` : '';
+        return identifySegmentWithACRCloud(
           arrayBuffer,
           fileName,
           seg.offset,
-          `segment ${i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%)`,
+          `segment ${i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%${qualityInfo})`,
           'high'
-        )
-      );
+        );
+      });
       const results = await Promise.all(batchPromises);
       allTracks.push(...results.flat());
       console.log(`Processed high priority batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(highPrioritySegments.length / batchSize)}`);
@@ -444,15 +589,16 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Then process normal priority
     for (let i = 0; i < normalPrioritySegments.length; i += batchSize) {
       const batch = normalPrioritySegments.slice(i, i + batchSize);
-      const batchPromises = batch.map((seg, idx) => 
-        identifySegmentWithACRCloud(
+      const batchPromises = batch.map((seg, idx) => {
+        const qualityInfo = seg.quality ? ` Q:${seg.quality.score}` : '';
+        return identifySegmentWithACRCloud(
           arrayBuffer,
           fileName,
           seg.offset,
-          `segment ${highPrioritySegments.length + i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%)`,
+          `segment ${highPrioritySegments.length + i + idx + 1} (${Math.round((seg.offset / fileSize) * 100)}%${qualityInfo})`,
           'normal'
-        )
-      );
+        );
+      });
       const results = await Promise.all(batchPromises);
       allTracks.push(...results.flat());
       console.log(`Processed normal priority batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(normalPrioritySegments.length / batchSize)}`);
@@ -486,10 +632,17 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
 
     console.log(`After deduplication: ${uniqueTracks.length} unique tracks`);
     
-    // Adaptive confidence threshold based on segment count
-    const totalSegments = segmentPositions.length;
+    // Adaptive confidence threshold based on quality of analyzed segments
+    const totalSegments = usableSegments.length;
+    const avgQuality = usableSegments.reduce((sum, s) => sum + (s.quality?.score || 0), 0) / totalSegments;
     const baseThreshold = 40;
-    const adaptiveThreshold = totalSegments > 15 ? baseThreshold - 5 : baseThreshold; // Lower threshold for more thorough scans
+    
+    // If average segment quality is high, we can be more selective
+    // If average quality is low, we need to be more lenient
+    const adaptiveThreshold = avgQuality > 60 ? baseThreshold + 5 : baseThreshold - 5;
+    
+    console.log(`Adaptive threshold: ${adaptiveThreshold}% (based on avg segment quality: ${Math.round(avgQuality)})`);
+
     
     let results = uniqueTracks.filter(track => track.confidence >= adaptiveThreshold);
     console.log(`After ${adaptiveThreshold}% confidence filter: ${results.length} tracks`);
