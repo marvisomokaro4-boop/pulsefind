@@ -246,6 +246,7 @@ async function identifyWithSimplifiedACRCloud(
   arrayBuffer: ArrayBuffer, 
   fileName: string,
   deepScan: boolean = false,
+  matchingMode: 'loose' | 'strict' = 'loose',
   supabaseClient: any
 ): Promise<{ results: any[], metrics: ScanMetrics, fromCache: boolean }> {
   const fileSize = arrayBuffer.byteLength;
@@ -253,7 +254,7 @@ async function identifyWithSimplifiedACRCloud(
   console.log('\n=== SIMPLIFIED ACRCLOUD SCANNING ===');
   console.log(`File size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
   console.log(`Deep Scan Mode: ${deepScan ? 'ENABLED (7 segments)' : 'DISABLED (3 segments)'}`);
-  
+  console.log(`Matching Mode: ${matchingMode.toUpperCase()} (${matchingMode === 'strict' ? '≥85%' : '≥40%'} confidence)`);
   // Define segments based on scan mode
   const segments = deepScan ? [
     { offset: 0, name: 'START (0%)' },
@@ -315,8 +316,8 @@ async function identifyWithSimplifiedACRCloud(
   
   console.log(`\n📊 After deduplication: ${deduplicatedTracks.length} unique tracks`);
   
-  // Basic confidence filtering - VERY lenient (>= 50)
-  const MIN_CONFIDENCE = 50;
+  // Apply confidence filter based on matching mode
+  const MIN_CONFIDENCE = matchingMode === 'strict' ? 85 : 40;
   const filtered = deduplicatedTracks.filter(track => track.confidence >= MIN_CONFIDENCE);
   
   console.log(`📊 After confidence filter (>=${MIN_CONFIDENCE}): ${filtered.length} tracks\n`);
@@ -477,6 +478,7 @@ serve(async (req) => {
     const formData = await req.formData();
     const audioFile = formData.get('audio') as File;
     const deepScan = formData.get('deepScan') === 'true';
+    const matchingMode = ((formData.get('matchingMode') as string) || 'loose') as 'loose' | 'strict';
 
     if (!audioFile) {
       return new Response(
@@ -497,6 +499,7 @@ serve(async (req) => {
       arrayBuffer, 
       audioFile.name,
       deepScan,
+      matchingMode,
       supabaseClient
     );
 
