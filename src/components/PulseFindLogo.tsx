@@ -15,10 +15,10 @@ export const PulseFindLogo = ({
   className 
 }: PulseFindLogoProps) => {
   const sizeMap = {
-    sm: { width: "32px", height: "32px", text: "text-base" },
-    md: { width: "40px", height: "40px", text: "text-xl" },
-    lg: { width: "80px", height: "80px", text: "text-4xl" },
-    xl: { width: "96px", height: "96px", text: "text-6xl" }
+    sm: { width: "40px", height: "40px", text: "text-base" },
+    md: { width: "52px", height: "52px", text: "text-xl" },
+    lg: { width: "96px", height: "96px", text: "text-4xl" },
+    xl: { width: "112px", height: "112px", text: "text-6xl" }
   };
 
   const sizes = sizeMap[size];
@@ -41,7 +41,7 @@ export const PulseFindLogo = ({
           <img 
             src={logoImage} 
             alt="PulseFind Logo" 
-            className="w-full h-full object-contain p-0.5"
+            className="w-full h-full object-contain"
           />
         </div>
       </div>
