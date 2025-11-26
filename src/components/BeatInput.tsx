@@ -26,6 +26,7 @@ interface Match {
   share_url?: string;
   album_cover_url?: string;
   preview_url?: string;
+  popularity?: number;
 }
 
 interface BeatResult {
@@ -119,6 +120,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit }: BeatInp
               release_date: match.release_date,
               album_cover_url: match.album_cover_url,
               preview_url: match.preview_url,
+              popularity: match.popularity,
             }));
 
             const { error: matchesError } = await supabase
