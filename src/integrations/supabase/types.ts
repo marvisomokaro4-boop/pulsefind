@@ -601,6 +601,45 @@ export type Database = {
         }
         Relationships: []
       }
+      system_error_scans: {
+        Row: {
+          created_at: string
+          critical_errors: number
+          error_count: number
+          error_details: Json
+          failed_scans: number
+          id: string
+          low_success_rate: boolean
+          scan_timestamp: string
+          success_rate: number
+          total_scans: number
+        }
+        Insert: {
+          created_at?: string
+          critical_errors?: number
+          error_count?: number
+          error_details?: Json
+          failed_scans?: number
+          id?: string
+          low_success_rate?: boolean
+          scan_timestamp?: string
+          success_rate?: number
+          total_scans?: number
+        }
+        Update: {
+          created_at?: string
+          critical_errors?: number
+          error_count?: number
+          error_details?: Json
+          failed_scans?: number
+          id?: string
+          low_success_rate?: boolean
+          scan_timestamp?: string
+          success_rate?: number
+          total_scans?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

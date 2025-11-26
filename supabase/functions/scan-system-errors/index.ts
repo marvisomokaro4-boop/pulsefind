@@ -95,59 +95,24 @@ serve(async (req) => {
 
     console.log('Error summary:', JSON.stringify(errorSummary, null, 2));
 
-    // If there are significant errors, notify admins
-    if (errorSummary.errorCount > 0 || lowSuccessRate) {
-      console.log('⚠️ Errors detected, sending admin notifications...');
+    // Store error scan results in database for admin dashboard
+    const { error: insertError } = await supabase
+      .from('system_error_scans')
+      .insert({
+        scan_timestamp: now.toISOString(),
+        error_count: errorSummary.errorCount,
+        critical_errors: errorSummary.criticalErrors,
+        failed_scans: errorSummary.failedScans,
+        total_scans: totalScans,
+        success_rate: successRate,
+        low_success_rate: lowSuccessRate,
+        error_details: recentErrors
+      });
 
-      // Get all admin users
-      const { data: adminRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'admin');
-
-      if (rolesError) {
-        console.error('Error fetching admin roles:', rolesError);
-      } else if (adminRoles && adminRoles.length > 0) {
-        const adminUserIds = adminRoles.map(r => r.user_id);
-
-        // Get admin emails
-        const { data: adminProfiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('email')
-          .in('id', adminUserIds);
-
-        if (profilesError) {
-          console.error('Error fetching admin profiles:', profilesError);
-        } else if (adminProfiles && adminProfiles.length > 0) {
-          const adminEmails = adminProfiles
-            .map(p => p.email)
-            .filter(email => email);
-
-          console.log(`Sending alerts to ${adminEmails.length} admins`);
-
-          // Send email to each admin
-          for (const email of adminEmails) {
-            try {
-              const emailResponse = await supabase.functions.invoke('send-system-error-alert', {
-                body: {
-                  to: email,
-                  errorSummary
-                }
-              });
-
-              if (emailResponse.error) {
-                console.error(`Failed to send email to ${email}:`, emailResponse.error);
-              } else {
-                console.log(`✅ Alert sent to ${email}`);
-              }
-            } catch (emailError) {
-              console.error(`Error sending email to ${email}:`, emailError);
-            }
-          }
-        }
-      }
+    if (insertError) {
+      console.error('Failed to store error scan in database:', insertError);
     } else {
-      console.log('✅ No significant errors detected - system healthy');
+      console.log('✅ Error scan results stored in database for admin dashboard');
     }
 
     return new Response(
