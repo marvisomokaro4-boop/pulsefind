@@ -30,7 +30,7 @@ export const PulseFindLogo = ({
         {/* Logo display */}
         <div 
           className={cn(
-            "relative rounded-2xl bg-gradient-primary flex items-center justify-center",
+            "relative rounded-full bg-gradient-primary flex items-center justify-center",
             "overflow-hidden"
           )}
           style={{ 
