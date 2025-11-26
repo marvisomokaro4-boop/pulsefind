@@ -358,7 +358,6 @@ interface AudioQualityScore {
   zeroCrossingRate: number;
   energyVariance: number;
   isSilent: boolean;
-  isNoisy: boolean;
   isUsable: boolean;
 }
 
@@ -375,7 +374,6 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
         zeroCrossingRate: 0,
         energyVariance: 0,
         isSilent: false,
-        isNoisy: false,
         isUsable: true // Allow usage when can't determine
       };
     }
@@ -391,7 +389,6 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
         zeroCrossingRate: 0,
         energyVariance: 0,
         isSilent: false,
-        isNoisy: false,
         isUsable: true
       };
     }
@@ -436,15 +433,12 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
   const meanEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
   const energyVariance = energies.reduce((sum, e) => sum + Math.pow(e - meanEnergy, 2), 0) / energies.length;
   
-  // Quality scoring - adjusted thresholds to be more lenient for producer tags and vocals
-  const SILENCE_THRESHOLD = 0.005; // Lowered to catch quieter audio
-  const NOISE_ZCR_THRESHOLD = 0.25; // Raised - vocals have high ZCR but aren't noise
-  const MIN_PEAK_THRESHOLD = 0.05; // Lowered to allow quieter content
-  const LOW_VARIANCE_THRESHOLD = 0.0001; // Very low variance = likely silence or noise
+  // Quality scoring - only detect silence, no noise filtering for beats/producer tags
+  const SILENCE_THRESHOLD = 0.005;
+  const MIN_PEAK_THRESHOLD = 0.05;
+  const LOW_VARIANCE_THRESHOLD = 0.0001;
   
   const isSilent = rms < SILENCE_THRESHOLD || peakLevel < MIN_PEAK_THRESHOLD;
-  // More lenient noise detection - only mark as noisy if VERY high ZCR AND very low energy
-  const isNoisy = zeroCrossingRate > NOISE_ZCR_THRESHOLD && rms < 0.02;
   const hasLowVariance = energyVariance < LOW_VARIANCE_THRESHOLD;
   
   // Calculate overall quality score (0-100)
@@ -459,8 +453,8 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
     const peakScore = (peakLevel > 0.1 && peakLevel < 0.95) ? 20 : peakLevel * 10;
     score += peakScore;
     
-    // Zero-crossing rate contribution (20 points): prefer musical content
-    const zcrScore = zeroCrossingRate < NOISE_ZCR_THRESHOLD ? 20 : Math.max(0, 20 - (zeroCrossingRate * 100));
+    // Zero-crossing rate contribution (20 points): all content is valid
+    const zcrScore = 20;
     score += zcrScore;
     
     // Energy variance contribution (20 points): prefer consistent, varied audio
@@ -468,8 +462,8 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
     score += varianceScore;
   }
   
-  // Lower minimum score threshold to allow more segments through
-  const isUsable = !isSilent && !isNoisy && score >= 20;
+  // Only filter out silent segments, all other audio is valid
+  const isUsable = !isSilent && score >= 20;
   
     return {
       score: Math.round(score),
@@ -478,7 +472,6 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
       zeroCrossingRate: Math.round(zeroCrossingRate * 1000) / 1000,
       energyVariance: Math.round(energyVariance * 100000) / 100000,
       isSilent,
-      isNoisy,
       isUsable
     };
   } catch (error) {
@@ -491,7 +484,6 @@ function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: num
       zeroCrossingRate: 0,
       energyVariance: 0,
       isSilent: false,
-      isNoisy: false,
       isUsable: true // Always allow processing on analysis failure
     };
   }
@@ -572,7 +564,6 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
             zeroCrossingRate: 0,
             energyVariance: 0,
             isSilent: false,
-            isNoisy: false,
             isUsable: true
           };
         }
@@ -584,7 +575,7 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
         const shouldSkip = !quality.isUsable && !isStrategic && !qualityAnalysisFailed; // Don't skip if analysis failed
         
         if (shouldSkip) {
-          console.log(`Skipping segment ${segmentIndex + 1} at ${Math.round(percentage)}% (quality score: ${quality.score}, silent: ${quality.isSilent}, noisy: ${quality.isNoisy})`);
+          console.log(`Skipping segment ${segmentIndex + 1} at ${Math.round(percentage)}% (quality score: ${quality.score}, silent: ${quality.isSilent})`);
         }
         
         segmentPositions.push({
