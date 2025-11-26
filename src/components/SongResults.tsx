@@ -34,6 +34,7 @@ interface Match {
   share_url?: string;
   album_cover_url?: string;
   preview_url?: string;
+  popularity?: number;
 }
 
 interface SongResultsProps {
@@ -110,13 +111,24 @@ const SongResults = ({ matches }: SongResultsProps) => {
     );
   }
 
-  // Separate high and low confidence matches and sort by confidence (popularity proxy)
+  // Separate high and low confidence matches and sort by popularity (Spotify score)
   const highConfidenceMatches = matches
     .filter(m => !m.confidence || m.confidence >= 70)
-    .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    .sort((a, b) => {
+      // Sort by popularity first (higher is better), then by confidence
+      const popA = a.popularity ?? 0;
+      const popB = b.popularity ?? 0;
+      if (popB !== popA) return popB - popA;
+      return (b.confidence || 0) - (a.confidence || 0);
+    });
   const lowConfidenceMatches = matches
     .filter(m => m.confidence && m.confidence < 70)
-    .sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+    .sort((a, b) => {
+      const popA = a.popularity ?? 0;
+      const popB = b.popularity ?? 0;
+      if (popB !== popA) return popB - popA;
+      return (b.confidence || 0) - (a.confidence || 0);
+    });
   
   // Apply Free tier restrictions
   const isFree = plan === 'Free';
@@ -199,6 +211,14 @@ const SongResults = ({ matches }: SongResultsProps) => {
                   >
                     <Shield className="w-3 h-3 mr-1" />
                     {Math.round(match.confidence)}%
+                  </Badge>
+                )}
+                {match.popularity !== undefined && match.popularity !== null && (
+                  <Badge 
+                    variant="secondary" 
+                    className="backdrop-blur bg-accent/20 border-accent/30"
+                  >
+                    🔥 {match.popularity}/100
                   </Badge>
                 )}
                 <div className="flex gap-1">

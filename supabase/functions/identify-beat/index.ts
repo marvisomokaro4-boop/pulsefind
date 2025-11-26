@@ -41,7 +41,7 @@ async function getSpotifyToken(): Promise<string | null> {
 }
 
 // Helper function to get album artwork and preview URL from Spotify
-async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{ artworkUrl: string | null, previewUrl: string | null, isAvailable: boolean }> {
+async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{ artworkUrl: string | null, previewUrl: string | null, isAvailable: boolean, popularity: number | null }> {
   try {
     const response = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
       headers: {
@@ -51,7 +51,7 @@ async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{
     
     if (!response.ok) {
       console.error(`Spotify API error for track ${trackId}: ${response.status}`);
-      return { artworkUrl: null, previewUrl: null, isAvailable: false };
+      return { artworkUrl: null, previewUrl: null, isAvailable: false, popularity: null };
     }
     
     const data = await response.json();
@@ -73,10 +73,13 @@ async function getSpotifyTrackDetails(trackId: string, token: string): Promise<{
     // Get preview URL (30-second MP3)
     const previewUrl = data.preview_url || null;
     
-    return { artworkUrl, previewUrl, isAvailable };
+    // Get popularity score (0-100)
+    const popularity = typeof data.popularity === 'number' ? data.popularity : null;
+    
+    return { artworkUrl, previewUrl, isAvailable, popularity };
   } catch (error) {
     console.error('Error fetching Spotify track details:', error);
-    return { artworkUrl: null, previewUrl: null, isAvailable: false };
+    return { artworkUrl: null, previewUrl: null, isAvailable: false, popularity: null };
   }
 }
 
@@ -573,7 +576,7 @@ serve(async (req) => {
         
         if (track.spotify_id) {
           try {
-            const { artworkUrl, previewUrl, isAvailable } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
+            const { artworkUrl, previewUrl, isAvailable, popularity } = await getSpotifyTrackDetails(track.spotify_id, spotifyToken);
             
             const spotify_url = `https://open.spotify.com/track/${track.spotify_id}`;
             const apple_music_url = apple_music_id ? `https://music.apple.com/us/song/${apple_music_id}` : null;
@@ -584,6 +587,7 @@ serve(async (req) => {
               apple_music_id,
               album_cover_url: artworkUrl || track.album_cover_url,
               preview_url: previewUrl,
+              popularity,
               spotify_url,
               apple_music_url,
               youtube_url

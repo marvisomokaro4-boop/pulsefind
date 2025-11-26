@@ -19,6 +19,7 @@ interface Match {
   share_url?: string;
   album_cover_url?: string;
   preview_url?: string;
+  popularity?: number;
 }
 
 interface BeatResult {
