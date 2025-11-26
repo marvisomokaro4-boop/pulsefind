@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Music } from "lucide-react";
+import { Loader2, Shield } from "lucide-react";
+import { PulseFindLogo } from "@/components/PulseFindLogo";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -80,17 +81,23 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <Card className="w-full max-w-md p-8 space-y-6 bg-card/50 backdrop-blur border-primary/20">
-        <div className="flex flex-col items-center space-y-2">
-          <div className="p-3 rounded-full bg-primary/10">
-            <Music className="w-8 h-8 text-primary" />
+      <Card className="w-full max-w-md p-8 space-y-6 bg-card/80 backdrop-blur-sm border-primary/20 shadow-lg">
+        <div className="flex flex-col items-center space-y-4">
+          <PulseFindLogo size="lg" />
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              {isLogin ? "Welcome Back" : "Get Started"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isLogin
+                ? "Sign in to track your beats across all platforms"
+                : "Create your account to discover where your beats are being used"}
+            </p>
           </div>
-          <h1 className="text-3xl font-bold">BeatTracker</h1>
-          <p className="text-muted-foreground text-center">
-            {isLogin
-              ? "Sign in to track your beats"
-              : "Create an account to get started"}
-          </p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Shield className="w-3 h-3" />
+            <span>Secure authentication powered by industry-standard encryption</span>
+          </div>
         </div>
 
         <form onSubmit={handleAuth} className="space-y-4">
