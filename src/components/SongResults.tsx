@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Music, ExternalLink, Shield, Play, X, Flag, Lock, Download, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MatchingModeToggle } from "./MatchingModeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,9 +55,16 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
   const [showLowConfidence, setShowLowConfidence] = useState(false);
   const [minConfidence, setMinConfidence] = useState(50);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [matchingMode, setMatchingMode] = useState<'strict' | 'loose'>('strict');
   const { toast } = useToast();
   const navigate = useNavigate();
   const { plan } = useSubscription();
+
+  // Handle matching mode changes
+  const handleModeChange = (mode: 'strict' | 'loose') => {
+    setMatchingMode(mode);
+    setMinConfidence(mode === 'strict' ? 85 : 40);
+  };
 
   const FREE_TIER_LIMIT = 5;
   
@@ -273,6 +281,12 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat' }: SongRe
           )}
         </Button>
       </div>
+
+      
+      <MatchingModeToggle 
+        mode={matchingMode}
+        onModeChange={handleModeChange}
+      />
 
       <ConfidenceSlider
         minConfidence={minConfidence}
