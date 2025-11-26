@@ -709,20 +709,22 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
 
     console.log(`After deduplication: ${uniqueTracks.length} unique tracks`);
     
-    // Adaptive confidence threshold based on quality of analyzed segments
+    // Stricter confidence threshold to reduce false positives
     const totalSegments = usableSegments.length;
     const avgQuality = qualityAnalysisFailed 
       ? 50 // Neutral quality if analysis failed
       : usableSegments.reduce((sum, s) => sum + (s.quality?.score || 50), 0) / totalSegments;
-    const baseThreshold = 40;
+    const baseThreshold = 60; // Increased from 40 to 60 for better accuracy
     
     // If average segment quality is high, we can be more selective
-    // If average quality is low or analysis failed, we need to be more lenient
+    // If average quality is low or analysis failed, we need to be slightly more lenient
     const adaptiveThreshold = qualityAnalysisFailed 
-      ? baseThreshold - 5 // More lenient when quality analysis unavailable
-      : avgQuality > 60 
-        ? baseThreshold + 5 
-        : baseThreshold - 5;
+      ? baseThreshold - 5 // Still strict even in fallback mode
+      : avgQuality > 70 
+        ? baseThreshold + 10 // Much stricter for high quality audio
+        : avgQuality > 50
+          ? baseThreshold 
+          : baseThreshold - 5; // Only slightly more lenient for lower quality
     
     console.log(`Adaptive threshold: ${adaptiveThreshold}% (based on avg segment quality: ${Math.round(avgQuality)}${qualityAnalysisFailed ? ' - fallback mode' : ''})`);
 
