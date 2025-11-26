@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      beat_fingerprints: {
+        Row: {
+          album: string | null
+          album_cover_url: string | null
+          apple_music_id: string | null
+          apple_music_url: string | null
+          artist: string
+          audio_duration_ms: number | null
+          confidence_score: number | null
+          created_at: string | null
+          fingerprint_hash: string
+          id: string
+          isrc: string | null
+          match_count: number | null
+          mfcc_features: Json | null
+          popularity: number | null
+          preview_url: string | null
+          release_date: string | null
+          song_title: string
+          source: string | null
+          spotify_id: string | null
+          spotify_url: string | null
+          updated_at: string | null
+          youtube_id: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          album?: string | null
+          album_cover_url?: string | null
+          apple_music_id?: string | null
+          apple_music_url?: string | null
+          artist: string
+          audio_duration_ms?: number | null
+          confidence_score?: number | null
+          created_at?: string | null
+          fingerprint_hash: string
+          id?: string
+          isrc?: string | null
+          match_count?: number | null
+          mfcc_features?: Json | null
+          popularity?: number | null
+          preview_url?: string | null
+          release_date?: string | null
+          song_title: string
+          source?: string | null
+          spotify_id?: string | null
+          spotify_url?: string | null
+          updated_at?: string | null
+          youtube_id?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          album?: string | null
+          album_cover_url?: string | null
+          apple_music_id?: string | null
+          apple_music_url?: string | null
+          artist?: string
+          audio_duration_ms?: number | null
+          confidence_score?: number | null
+          created_at?: string | null
+          fingerprint_hash?: string
+          id?: string
+          isrc?: string | null
+          match_count?: number | null
+          mfcc_features?: Json | null
+          popularity?: number | null
+          preview_url?: string | null
+          release_date?: string | null
+          song_title?: string
+          source?: string | null
+          spotify_id?: string | null
+          spotify_url?: string | null
+          updated_at?: string | null
+          youtube_id?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
       beat_matches: {
         Row: {
           album: string | null
@@ -464,6 +542,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_fingerprint_match_count: {
+        Args: { fingerprint_id: string }
+        Returns: undefined
       }
       increment_scan_count: { Args: { _user_id: string }; Returns: boolean }
     }

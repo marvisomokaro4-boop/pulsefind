@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
+import { generateAudioFingerprint, calculateMFCCSimilarity } from "../_shared/audioFingerprint.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -682,21 +684,246 @@ function areSimilarTracks(track1: any, track2: any): boolean {
   return titleSimilar && artistSimilar;
 }
 
-// Simplified scanning strategy - just full audio scan
+/**
+ * Search local fingerprint database first (Option 1: Local Database)
+ * Falls back to ACRCloud if no matches found (Option 3: Hybrid)
+ */
+async function searchLocalFingerprintDatabase(
+  audioBuffer: ArrayBuffer,
+  fingerprint: { hash: string; mfcc: number[][]; duration_ms: number }
+): Promise<any[]> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  console.log('🔍 Searching local fingerprint database...');
+  
+  try {
+    // Step 1: Try exact hash match (fastest)
+    const { data: exactMatches, error: exactError } = await supabase
+      .from('beat_fingerprints')
+      .select('*')
+      .eq('fingerprint_hash', fingerprint.hash)
+      .limit(10);
+    
+    if (exactError) {
+      console.error('Error searching exact matches:', exactError);
+    } else if (exactMatches && exactMatches.length > 0) {
+      console.log(`✅ Found ${exactMatches.length} exact hash matches in local database`);
+      
+      // Increment match counts
+      for (const match of exactMatches) {
+        await supabase.rpc('increment_fingerprint_match_count', { 
+          fingerprint_id: match.id 
+        });
+      }
+      
+      return exactMatches.map(match => ({
+        title: match.song_title,
+        artist: match.artist,
+        album: match.album,
+        confidence: 100, // Exact match = 100%
+        source: 'Local Database (Exact)',
+        isrc: match.isrc,
+        spotify_id: match.spotify_id,
+        apple_music_id: match.apple_music_id,
+        youtube_id: match.youtube_id,
+        spotify_url: match.spotify_url,
+        apple_music_url: match.apple_music_url,
+        youtube_url: match.youtube_url,
+        album_cover_url: match.album_cover_url,
+        preview_url: match.preview_url,
+        popularity: match.popularity,
+        release_date: match.release_date,
+        match_quality: 'high',
+        cached: true
+      }));
+    }
+    
+    console.log('No exact hash matches, trying MFCC similarity matching...');
+    
+    // Step 2: MFCC similarity search (fallback)
+    const { data: allFingerprints, error: allError } = await supabase
+      .from('beat_fingerprints')
+      .select('id, song_title, artist, album, mfcc_features, spotify_id, apple_music_id, youtube_id, spotify_url, apple_music_url, youtube_url, album_cover_url, preview_url, popularity, release_date, isrc')
+      .not('mfcc_features', 'is', null)
+      .limit(1000); // Limit for performance
+    
+    if (allError) {
+      console.error('Error fetching fingerprints for MFCC matching:', allError);
+      return [];
+    }
+    
+    if (!allFingerprints || allFingerprints.length === 0) {
+      console.log('No fingerprints in database for MFCC matching');
+      return [];
+    }
+    
+    console.log(`Comparing against ${allFingerprints.length} cached fingerprints...`);
+    
+    // Calculate similarities
+    const similarities: Array<{ match: any; similarity: number }> = [];
+    
+    for (const cached of allFingerprints) {
+      try {
+        const cachedMFCC = cached.mfcc_features as number[][];
+        const similarity = calculateMFCCSimilarity(fingerprint.mfcc, cachedMFCC);
+        
+        if (similarity >= 0.75) { // 75% threshold for matches
+          similarities.push({ match: cached, similarity });
+        }
+      } catch (e) {
+        // Skip invalid MFCC data
+        continue;
+      }
+    }
+    
+    // Sort by similarity
+    similarities.sort((a, b) => b.similarity - a.similarity);
+    
+    if (similarities.length > 0) {
+      console.log(`✅ Found ${similarities.length} MFCC similarity matches in local database`);
+      
+      // Increment match counts
+      for (const { match } of similarities.slice(0, 10)) {
+        await supabase.rpc('increment_fingerprint_match_count', { 
+          fingerprint_id: match.id 
+        });
+      }
+      
+      return similarities.slice(0, 10).map(({ match, similarity }) => ({
+        title: match.song_title,
+        artist: match.artist,
+        album: match.album,
+        confidence: Math.round(similarity * 100),
+        source: 'Local Database (MFCC)',
+        isrc: match.isrc,
+        spotify_id: match.spotify_id,
+        apple_music_id: match.apple_music_id,
+        youtube_id: match.youtube_id,
+        spotify_url: match.spotify_url,
+        apple_music_url: match.apple_music_url,
+        youtube_url: match.youtube_url,
+        album_cover_url: match.album_cover_url,
+        preview_url: match.preview_url,
+        popularity: match.popularity,
+        release_date: match.release_date,
+        match_quality: similarity >= 0.90 ? 'high' : similarity >= 0.75 ? 'medium' : 'low',
+        cached: true
+      }));
+    }
+    
+    console.log('No MFCC matches found in local database');
+    return [];
+    
+  } catch (error) {
+    console.error('Local database search error:', error);
+    return [];
+  }
+}
+
+/**
+ * Cache ACRCloud results to local database for future matches
+ */
+async function cacheACRCloudResults(
+  fingerprint: { hash: string; mfcc: number[][]; duration_ms: number },
+  results: any[]
+): Promise<void> {
+  if (results.length === 0) return;
+  
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  console.log(`💾 Caching ${results.length} ACRCloud results to local database...`);
+  
+  try {
+    for (const result of results) {
+      // Check if already exists by ISRC or title+artist
+      const { data: existing } = await supabase
+        .from('beat_fingerprints')
+        .select('id')
+        .or(`isrc.eq.${result.isrc},and(song_title.eq.${result.title},artist.eq.${result.artist})`)
+        .maybeSingle();
+      
+      if (existing) {
+        console.log(`Already cached: "${result.title}" by ${result.artist}`);
+        continue;
+      }
+      
+      // Insert new fingerprint
+      const { error } = await supabase
+        .from('beat_fingerprints')
+        .insert({
+          fingerprint_hash: fingerprint.hash,
+          mfcc_features: fingerprint.mfcc,
+          audio_duration_ms: fingerprint.duration_ms,
+          song_title: result.title,
+          artist: result.artist,
+          album: result.album,
+          isrc: result.isrc,
+          spotify_id: result.spotify_id,
+          apple_music_id: result.apple_music_id,
+          youtube_id: result.youtube_id,
+          spotify_url: result.spotify_url,
+          apple_music_url: result.apple_music_url,
+          youtube_url: result.youtube_url,
+          album_cover_url: result.album_cover_url,
+          preview_url: result.preview_url,
+          popularity: result.popularity,
+          release_date: result.release_date,
+          confidence_score: result.confidence,
+          source: 'acrcloud'
+        });
+      
+      if (error) {
+        console.error(`Error caching "${result.title}":`, error);
+      } else {
+        console.log(`✅ Cached: "${result.title}" by ${result.artist}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error caching results:', error);
+  }
+}
+
+// Simplified scanning strategy - local database first, ACRCloud fallback
 async function tryMultipleQueryStrategies(
   arrayBuffer: ArrayBuffer, 
   fileName: string,
   disableDeduplication: boolean = false
 ): Promise<any[]> {
-  console.log('Starting full audio scan...');
+  console.log('=== HYBRID MATCHING SYSTEM (Option 1 + 3) ===');
+  console.log('Step 1: Generate audio fingerprint...');
   
   try {
-    const results = await identifyWithACRCloudMultiSegment(arrayBuffer, fileName, disableDeduplication);
-    console.log(`Scan complete, found ${results.length} results`);
-    return results;
+    // Generate fingerprint for local database matching
+    const fingerprint = await generateAudioFingerprint(arrayBuffer);
+    console.log(`Fingerprint generated: hash length ${fingerprint.hash.length}, MFCC frames: ${fingerprint.mfcc.length}`);
+    
+    // Step 2: Search local database first (Option 1)
+    const localResults = await searchLocalFingerprintDatabase(arrayBuffer, fingerprint);
+    
+    if (localResults.length > 0) {
+      console.log(`🎯 Local database returned ${localResults.length} matches - skipping ACRCloud`);
+      return localResults;
+    }
+    
+    // Step 3: Fall back to ACRCloud if no local matches (Option 3: Hybrid)
+    console.log('No local matches found, falling back to ACRCloud...');
+    const acrcloudResults = await identifyWithACRCloudMultiSegment(arrayBuffer, fileName, disableDeduplication);
+    console.log(`ACRCloud returned ${acrcloudResults.length} results`);
+    
+    // Step 4: Cache ACRCloud results for future matches
+    if (acrcloudResults.length > 0) {
+      await cacheACRCloudResults(fingerprint, acrcloudResults);
+    }
+    
+    return acrcloudResults;
   } catch (error) {
-    console.error('Scan failed:', error);
-    return [];
+    console.error('Hybrid matching error:', error);
+    // Last resort: try ACRCloud without fingerprinting
+    return await identifyWithACRCloudMultiSegment(arrayBuffer, fileName, disableDeduplication);
   }
 }
 
