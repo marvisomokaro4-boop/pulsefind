@@ -12,12 +12,12 @@ export class AudioPreprocessor {
   }
 
   /**
-   * Convert audio file to standardized WAV format
+   * Convert audio file to standardized WAV format with enhanced preprocessing
    * @param file - Original audio file
    * @returns Preprocessed audio blob in WAV format
    */
   async preprocessAudio(file: File): Promise<Blob> {
-    console.log('[AUDIO-PREPROCESS] Starting preprocessing:', {
+    console.log('[AUDIO-PREPROCESS] Starting enhanced preprocessing:', {
       fileName: file.name,
       originalSize: file.size,
       originalType: file.type
@@ -36,18 +36,45 @@ export class AudioPreprocessor {
       });
 
       // Convert to mono if stereo
-      const monoBuffer = this.convertToMono(audioBuffer);
+      let monoBuffer = this.convertToMono(audioBuffer);
+      
+      // Get samples for processing
+      const originalSamples = monoBuffer.getChannelData(0);
+      
+      // Volume normalization
+      const normalizedSamples = this.normalizeVolume(originalSamples);
+      console.log('[AUDIO-PREPROCESS] Volume normalized');
+      
+      // Silence trimming
+      const { start, end } = this.detectSilence(normalizedSamples);
+      const trimmedSamples = normalizedSamples.slice(start, end);
+      const silenceTrimmedMs = ((start + (normalizedSamples.length - end)) / monoBuffer.sampleRate) * 1000;
+      console.log('[AUDIO-PREPROCESS] Silence trimmed:', { silenceTrimmedMs: silenceTrimmedMs.toFixed(0) });
+      
+      // Create new buffer with processed samples
+      const processedBuffer = this.audioContext.createBuffer(
+        1,
+        trimmedSamples.length,
+        monoBuffer.sampleRate
+      );
+      processedBuffer.getChannelData(0).set(trimmedSamples);
       
       // Resample to 44.1kHz if needed
-      const resampledBuffer = await this.resampleTo44100(monoBuffer);
+      const resampledBuffer = await this.resampleTo44100(processedBuffer);
+      
+      // Audio quality analysis
+      const qualityScore = this.analyzeQuality(resampledBuffer.getChannelData(0));
+      console.log('[AUDIO-PREPROCESS] Quality score:', qualityScore.toFixed(4));
       
       // Convert to 16-bit PCM WAV
       const wavBlob = this.encodeWAV(resampledBuffer);
       
-      console.log('[AUDIO-PREPROCESS] Preprocessing complete:', {
+      console.log('[AUDIO-PREPROCESS] Enhanced preprocessing complete:', {
         outputSize: wavBlob.size,
         outputType: wavBlob.type,
-        compressionRatio: (file.size / wavBlob.size).toFixed(2)
+        compressionRatio: (file.size / wavBlob.size).toFixed(2),
+        qualityScore: qualityScore.toFixed(4),
+        silenceTrimmedMs: silenceTrimmedMs.toFixed(0)
       });
 
       return wavBlob;
@@ -55,6 +82,80 @@ export class AudioPreprocessor {
       console.error('[AUDIO-PREPROCESS] Failed:', error);
       throw new Error(`Audio preprocessing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * Analyze audio quality
+   */
+  private analyzeQuality(samples: Float32Array): number {
+    // Calculate RMS
+    let sumSquares = 0;
+    for (let i = 0; i < samples.length; i++) {
+      sumSquares += samples[i] * samples[i];
+    }
+    const rms = Math.sqrt(sumSquares / samples.length);
+    
+    // Calculate zero crossings
+    let zeroCrossings = 0;
+    for (let i = 1; i < samples.length; i++) {
+      if ((samples[i - 1] >= 0 && samples[i] < 0) || (samples[i - 1] < 0 && samples[i] >= 0)) {
+        zeroCrossings++;
+      }
+    }
+    const zcr = zeroCrossings / samples.length;
+    
+    // Combined quality score
+    const rmsScore = Math.min(rms * 10, 1);
+    const zcrScore = Math.min(zcr * 100, 1);
+    
+    return (rmsScore + zcrScore) / 2;
+  }
+
+  /**
+   * Normalize audio volume
+   */
+  private normalizeVolume(samples: Float32Array): Float32Array {
+    let peak = 0;
+    for (let i = 0; i < samples.length; i++) {
+      const abs = Math.abs(samples[i]);
+      if (abs > peak) peak = abs;
+    }
+    
+    if (peak === 0) return samples;
+    
+    const targetPeak = 0.9;
+    const gain = targetPeak / peak;
+    
+    const normalized = new Float32Array(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+      normalized[i] = samples[i] * gain;
+    }
+    
+    return normalized;
+  }
+
+  /**
+   * Detect silence boundaries
+   */
+  private detectSilence(samples: Float32Array, threshold = 0.01): { start: number; end: number } {
+    let start = 0;
+    let end = samples.length - 1;
+    
+    for (let i = 0; i < samples.length; i++) {
+      if (Math.abs(samples[i]) > threshold) {
+        start = i;
+        break;
+      }
+    }
+    
+    for (let i = samples.length - 1; i >= 0; i--) {
+      if (Math.abs(samples[i]) > threshold) {
+        end = i;
+        break;
+      }
+    }
+    
+    return { start, end };
   }
 
   /**
