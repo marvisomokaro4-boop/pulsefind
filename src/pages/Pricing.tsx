@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ const Pricing = () => {
     {
       name: 'Pro',
       price: '£4.99',
+      priceUSD: '$6.99',
       period: 'per month',
       scans: 'Unlimited uploads',
       features: [
@@ -133,12 +135,76 @@ const Pricing = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80">
       <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
-          <p className="text-muted-foreground text-lg">
-            Unlock powerful beat recognition features
-          </p>
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
+        <p className="text-muted-foreground text-lg">
+          Unlock powerful beat recognition features
+        </p>
+      </div>
+
+      {/* Feature Comparison Table */}
+      <div className="mb-16 max-w-5xl mx-auto">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left p-6 font-semibold text-lg">Features</th>
+                <th className="text-center p-6 font-semibold text-lg border-l border-border">Free</th>
+                <th className="text-center p-6 font-semibold text-lg border-l border-border bg-primary/5">
+                  <div className="flex items-center justify-center gap-2">
+                    Pro
+                    <Badge variant="default" className="ml-2">Popular</Badge>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-border">
+                <td className="p-4 font-medium">Monthly Uploads</td>
+                <td className="p-4 text-center border-l border-border text-muted-foreground">1 upload</td>
+                <td className="p-4 text-center border-l border-border bg-primary/5 font-semibold">Unlimited</td>
+              </tr>
+              <tr className="border-b border-border">
+                <td className="p-4 font-medium">Scan Type</td>
+                <td className="p-4 text-center border-l border-border text-muted-foreground">Basic scan only</td>
+                <td className="p-4 text-center border-l border-border bg-primary/5 font-semibold">Full deep scan</td>
+              </tr>
+              <tr className="border-b border-border">
+                <td className="p-4 font-medium">Results Display</td>
+                <td className="p-4 text-center border-l border-border text-muted-foreground">Partial results</td>
+                <td className="p-4 text-center border-l border-border bg-primary/5 font-semibold">Full result list</td>
+              </tr>
+              <tr className="border-b border-border">
+                <td className="p-4 font-medium">Auto Alerts</td>
+                <td className="p-4 text-center border-l border-border">
+                  <Check className="w-5 h-5 mx-auto text-muted-foreground opacity-30" />
+                </td>
+                <td className="p-4 text-center border-l border-border bg-primary/5">
+                  <Check className="w-5 h-5 mx-auto text-primary" />
+                </td>
+              </tr>
+              <tr className="border-b border-border">
+                <td className="p-4 font-medium">Downloadable Reports</td>
+                <td className="p-4 text-center border-l border-border">
+                  <Check className="w-5 h-5 mx-auto text-muted-foreground opacity-30" />
+                </td>
+                <td className="p-4 text-center border-l border-border bg-primary/5">
+                  <Check className="w-5 h-5 mx-auto text-primary" />
+                </td>
+              </tr>
+              <tr>
+                <td className="p-4 font-medium">Scan History</td>
+                <td className="p-4 text-center border-l border-border">
+                  <Check className="w-5 h-5 mx-auto text-muted-foreground opacity-30" />
+                </td>
+                <td className="p-4 text-center border-l border-border bg-primary/5">
+                  <Check className="w-5 h-5 mx-auto text-primary" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </div>
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
           {plans.map((plan) => {
@@ -169,7 +235,12 @@ const Pricing = () => {
                     <span className="text-4xl font-bold">{plan.price}</span>
                     <span className="text-muted-foreground ml-2">{plan.period}</span>
                   </div>
-                  <p className="text-primary font-medium">{plan.scans}</p>
+                  {plan.priceUSD && (
+                    <p className="text-sm text-muted-foreground">
+                      Approx. {plan.priceUSD} USD
+                    </p>
+                  )}
+                  <p className="text-primary font-medium mt-2">{plan.scans}</p>
                 </div>
 
                 <ul className="space-y-3 mb-8">
