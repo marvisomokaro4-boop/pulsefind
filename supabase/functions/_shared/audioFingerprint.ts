@@ -1,15 +1,16 @@
-// Simplified audio fingerprinting for local database matching
-// Uses spectral features similar to MFCC for matching
+// Chromaprint-style binary fingerprinting for local database matching
+// Uses binary fingerprints with Hamming distance for exact match detection
 
 interface AudioFeatures {
+  binaryFingerprint: string; // Binary fingerprint (hex string) for Hamming distance
   hash: string; // Quick lookup hash
-  mfcc: number[][]; // MFCC-like coefficients for similarity matching
+  mfcc: number[][]; // MFCC-like coefficients for fuzzy similarity matching
   duration_ms: number;
 }
 
 /**
- * Generate a simple audio fingerprint from raw audio data
- * This creates a hash for quick exact matching and MFCC features for fuzzy matching
+ * Generate Chromaprint-style binary fingerprint from raw audio data
+ * Creates binary fingerprint for Hamming distance matching + hash + MFCC for fuzzy matching
  */
 export async function generateAudioFingerprint(
   audioBuffer: ArrayBuffer
@@ -20,13 +21,17 @@ export async function generateAudioFingerprint(
     const sampleCount = samples.length;
     const duration_ms = Math.floor((sampleCount / 44100) * 1000); // Assume 44.1kHz
     
+    // Generate binary fingerprint (Chromaprint-style)
+    const binaryFingerprint = generateBinaryFingerprint(samples);
+    
     // Generate quick hash for exact matching
     const hash = await generateQuickHash(samples);
     
-    // Extract MFCC-like features for similarity matching
+    // Extract MFCC-like features for fuzzy similarity matching
     const mfcc = extractSpectralFeatures(samples);
     
     return {
+      binaryFingerprint,
       hash,
       mfcc,
       duration_ms
@@ -35,6 +40,69 @@ export async function generateAudioFingerprint(
     console.error('Fingerprint generation error:', error);
     throw error;
   }
+}
+
+/**
+ * Generate Chromaprint-style binary fingerprint
+ * Uses spectral energy differences across frames to create binary hash
+ */
+function generateBinaryFingerprint(samples: Int16Array): string {
+  const windowSize = 4096; // ~93ms at 44.1kHz
+  const hopSize = windowSize / 2;
+  const numBands = 32; // Frequency bands
+  
+  const fingerprint: number[] = [];
+  let prevBandEnergies: number[] = [];
+  
+  // Process overlapping windows
+  for (let i = 0; i < samples.length - windowSize; i += hopSize) {
+    const window = samples.slice(i, i + windowSize);
+    
+    // Calculate energy in frequency bands
+    const bandEnergies = calculateBandEnergies(window, numBands);
+    
+    // Compare with previous frame to create binary bits
+    if (prevBandEnergies.length > 0) {
+      let bits = 0;
+      
+      for (let b = 0; b < numBands; b++) {
+        // Set bit if energy increased
+        if (bandEnergies[b] > prevBandEnergies[b]) {
+          bits |= (1 << b);
+        }
+      }
+      
+      fingerprint.push(bits);
+    }
+    
+    prevBandEnergies = bandEnergies;
+  }
+  
+  // Convert to hex string for storage
+  return fingerprint.map(n => n.toString(16).padStart(8, '0')).join('');
+}
+
+/**
+ * Calculate energy in frequency bands (simplified mel-scale approximation)
+ */
+function calculateBandEnergies(window: Int16Array, numBands: number): number[] {
+  const bandSize = Math.floor(window.length / numBands);
+  const bandEnergies: number[] = [];
+  
+  for (let b = 0; b < numBands; b++) {
+    const start = b * bandSize;
+    const end = Math.min(start + bandSize, window.length);
+    
+    let bandEnergy = 0;
+    for (let i = start; i < end; i++) {
+      const normalized = window[i] / 32768;
+      bandEnergy += normalized * normalized;
+    }
+    
+    bandEnergies.push(Math.log(bandEnergy + 1e-10));
+  }
+  
+  return bandEnergies;
 }
 
 /**
@@ -169,4 +237,41 @@ function cosineSimilarity(a: number[], b: number[]): number {
   if (normA === 0 || normB === 0) return 0;
   
   return dotProduct / (normA * normB);
+}
+
+/**
+ * Calculate Hamming distance between two binary fingerprints
+ * Returns similarity score 0-1 (1 = identical, 0 = completely different)
+ */
+export function calculateHammingDistance(
+  fingerprint1: string,
+  fingerprint2: string
+): number {
+  // Ensure same length
+  const len = Math.min(fingerprint1.length, fingerprint2.length);
+  
+  let differences = 0;
+  let totalBits = 0;
+  
+  for (let i = 0; i < len; i += 8) {
+    const hex1 = fingerprint1.substr(i, 8);
+    const hex2 = fingerprint2.substr(i, 8);
+    
+    const int1 = parseInt(hex1, 16);
+    const int2 = parseInt(hex2, 16);
+    
+    // XOR to find differing bits
+    let xor = int1 ^ int2;
+    
+    // Count set bits (differences)
+    while (xor > 0) {
+      differences += xor & 1;
+      xor >>= 1;
+    }
+    
+    totalBits += 32; // 8 hex chars = 32 bits
+  }
+  
+  // Return similarity (1 - difference ratio)
+  return 1 - (differences / totalBits);
 }
