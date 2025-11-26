@@ -301,7 +301,19 @@ async function identifyWithSimplifiedACRCloud(
   let adaptiveThresholds;
   
   try {
-    const samples = new Float32Array(arrayBuffer);
+    // Ensure buffer is properly aligned for Float32Array (multiple of 4 bytes)
+    const byteLength = arrayBuffer.byteLength;
+    const alignedLength = Math.floor(byteLength / 4) * 4;
+    
+    if (alignedLength === 0) {
+      throw new Error('Audio buffer too small for characteristics analysis');
+    }
+    
+    const alignedBuffer = alignedLength === byteLength 
+      ? arrayBuffer 
+      : arrayBuffer.slice(0, alignedLength);
+      
+    const samples = new Float32Array(alignedBuffer);
     const sampleRate = 44100; // Assume standard sample rate
     
     beatCharacteristics = analyzeBeatCharacteristics(samples, sampleRate);
