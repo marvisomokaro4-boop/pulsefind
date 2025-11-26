@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, TrendingUp, Database, Activity, Users, Crown } from "lucide-react";
+import { ArrowLeft, TrendingUp, Database, Activity, Users, Crown, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface PlatformStats {
@@ -232,19 +232,29 @@ const AdminAnalytics = () => {
       {/* Header */}
       <div className="border-b border-border bg-card/50 backdrop-blur">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/")}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Admin Analytics</h1>
-              <p className="text-sm text-muted-foreground">Promotional Stats & Missing Link Reports</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/")}
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold">Admin Analytics</h1>
+                <p className="text-sm text-muted-foreground">Promotional Stats & Missing Link Reports</p>
+              </div>
             </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/test-alerts")}
+              className="gap-2"
+            >
+              <Mail className="w-4 h-4" />
+              Test Auto-Alerts
+            </Button>
           </div>
         </div>
       </div>
