@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -28,6 +29,26 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting for email endpoint to prevent spam (5 emails per hour)
+    const clientId = getClientIdentifier(req);
+    const rateLimit = await checkRateLimit(clientId, 'send-alert-email', {
+      maxRequests: 5,
+      windowMinutes: 60
+    });
+
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Too many emails sent.',
+          resetAt: rateLimit.resetAt 
+        }),
+        { 
+          status: 429, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const { email, beatName, newMatches }: AlertEmailRequest = await req.json();
 
     console.log(`Sending alert email to ${email} for beat: ${beatName}`);

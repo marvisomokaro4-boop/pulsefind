@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,26 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting for public promo stats endpoint (30 requests per 15 minutes)
+    const clientId = getClientIdentifier(req);
+    const rateLimit = await checkRateLimit(clientId, 'get-promo-stats', {
+      maxRequests: 30,
+      windowMinutes: 15
+    });
+
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again later.',
+          resetAt: rateLimit.resetAt 
+        }),
+        { 
+          status: 429, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     logStep("Function started");
 
     // Create a Supabase client with service role key to bypass RLS for counting

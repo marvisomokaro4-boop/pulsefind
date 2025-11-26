@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { checkRateLimit, getClientIdentifier } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,26 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting for public endpoint (10 requests per hour)
+    const clientId = getClientIdentifier(req);
+    const rateLimit = await checkRateLimit(clientId, 'auto-alert-scan', {
+      maxRequests: 10,
+      windowMinutes: 60
+    });
+
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please try again later.',
+          resetAt: rateLimit.resetAt 
+        }),
+        { 
+          status: 429, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     console.log('🔄 Starting auto-alert scan cycle...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
