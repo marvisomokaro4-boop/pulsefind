@@ -228,23 +228,6 @@ interface ACRCloudResponse {
   };
 }
 
-interface ShazamResponse {
-  track?: {
-    title: string;
-    subtitle: string;
-    share: {
-      href: string;
-    };
-    hub?: {
-      providers?: Array<{
-        type: string;
-        actions: Array<{
-          uri: string;
-        }>;
-      }>;
-    };
-  };
-}
 
 async function identifySegmentWithACRCloud(
   arrayBuffer: ArrayBuffer, 
@@ -468,49 +451,6 @@ function normalizeAudioBuffer(buffer: ArrayBuffer): ArrayBuffer {
   }
 }
 
-async function identifyWithShazam(arrayBuffer: ArrayBuffer): Promise<any[]> {
-  const shazamApiKey = Deno.env.get('SHAZAM_API_KEY');
-
-  if (!shazamApiKey) {
-    console.log('Shazam API key not configured');
-    return [];
-  }
-
-  try {
-    const response = await fetch('https://shazam.p.rapidapi.com/songs/v2/detect', {
-      method: 'POST',
-      headers: {
-        'x-rapidapi-key': shazamApiKey,
-        'x-rapidapi-host': 'shazam.p.rapidapi.com',
-        'Content-Type': 'text/plain',
-      },
-      body: arrayBuffer,
-    });
-
-    const data: ShazamResponse = await response.json();
-    console.log('Shazam response:', JSON.stringify(data));
-
-    if (data.track) {
-      const spotifyProvider = data.track.hub?.providers?.find(p => p.type === 'SPOTIFY');
-      const appleMusicProvider = data.track.hub?.providers?.find(p => p.type === 'APPLEMUSIC');
-
-      return [{
-        title: data.track.title,
-        artist: data.track.subtitle,
-        confidence: 85, // Shazam doesn't provide confidence, set default
-        source: 'Shazam',
-        share_url: data.track.share.href,
-        spotify_url: spotifyProvider?.actions[0]?.uri,
-        apple_music_url: appleMusicProvider?.actions[0]?.uri,
-      }];
-    }
-
-    return [];
-  } catch (error) {
-    console.error('Shazam error:', error);
-    return [];
-  }
-}
 
 // AudD integration for additional validation
 async function identifyWithAudD(arrayBuffer: ArrayBuffer): Promise<any[]> {
@@ -620,11 +560,10 @@ serve(async (req) => {
     console.log('Applying audio normalization...');
     arrayBuffer = normalizeAudioBuffer(arrayBuffer);
 
-    // Run all THREE APIs in parallel for maximum coverage
-    console.log('Querying ACRCloud, Shazam, and AudD in parallel...');
-    const [acrcloudResults, shazamResults, auddResults] = await Promise.all([
+    // Run both APIs in parallel for maximum coverage
+    console.log('Querying ACRCloud and AudD in parallel...');
+    const [acrcloudResults, auddResults] = await Promise.all([
       identifyWithACRCloud(arrayBuffer, audioFile.name),
-      identifyWithShazam(arrayBuffer),
       identifyWithAudD(arrayBuffer),
     ]);
 
@@ -632,7 +571,7 @@ serve(async (req) => {
     // Tracks found by multiple services get confidence boost
     const trackScores = new Map<string, { track: any, serviceCount: number, totalConfidence: number }>();
     
-    const allResults = [...acrcloudResults, ...shazamResults, ...auddResults];
+    const allResults = [...acrcloudResults, ...auddResults];
     
     for (const result of allResults) {
       const key = `${result.title}-${result.artist}`;
@@ -757,7 +696,7 @@ serve(async (req) => {
     }
 
     console.log('Found matches:', matches.length);
-    console.log('Results by service - ACRCloud:', acrcloudResults.length, 'Shazam:', shazamResults.length, 'AudD:', auddResults.length);
+    console.log('Results by service - ACRCloud:', acrcloudResults.length, 'AudD:', auddResults.length);
 
     return new Response(
       JSON.stringify({ 
@@ -765,13 +704,12 @@ serve(async (req) => {
         matches,
         sources_used: {
           acrcloud: acrcloudResults.length > 0,
-          shazam: shazamResults.length > 0,
           audd: auddResults.length > 0,
         },
         optimization_applied: {
           audio_normalization: true,
           larger_segments: true,
-          triple_service_validation: true,
+          dual_service_validation: true,
         }
       }),
       { 
