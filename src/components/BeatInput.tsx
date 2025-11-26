@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, Check, Music, ChevronDown } from "lucide-react";
+import { Upload, Check, Music, ChevronDown, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -67,6 +67,7 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
   const [searchMode, setSearchMode] = useState<"beat" | "producer-tag">("beat");
   const [deepScanEnabled, setDeepScanEnabled] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [lastUploadedFile, setLastUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { scansPerDay, refreshSubscription } = useSubscription();
@@ -273,6 +274,11 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
     setCurrentFileSize(filesArray[0].size);
     setIsAnalyzing(true);
     setIsComplete(false);
+    
+    // Cache the first file for re-search
+    if (!isBatch && filesArray.length === 1) {
+      setLastUploadedFile(filesArray[0]);
+    }
 
     try {
       // Process all files in parallel
@@ -350,6 +356,84 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
     setIsBatchMode(false);
     setProcessedCount(0);
     setTotalFiles(0);
+  };
+
+  const handleResearch = async () => {
+    if (!lastUploadedFile) return;
+    
+    // Check scan limits for authenticated users
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      try {
+        const { data: usageData } = await supabase.rpc('get_scan_usage', {
+          _user_id: user.id
+        });
+
+        if (usageData && usageData.length > 0) {
+          const { scan_count, scans_per_day } = usageData[0];
+          
+          if (scans_per_day !== -1 && scan_count >= scans_per_day) {
+            toast({
+              title: "Daily Limit Reached",
+              description: `You've used all ${scans_per_day} scans today. Upgrade for more scans!`,
+              variant: "destructive",
+            });
+            navigate('/pricing');
+            return;
+          }
+
+          const { data: canScan } = await supabase.rpc('increment_scan_count', {
+            _user_id: user.id
+          });
+
+          if (!canScan) {
+            toast({
+              title: "Daily Limit Reached",
+              description: "You've reached your daily scan limit. Upgrade to continue!",
+              variant: "destructive",
+            });
+            navigate('/pricing');
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking scan limits:', error);
+      }
+    }
+
+    setFileName(lastUploadedFile.name);
+    setCurrentFileSize(lastUploadedFile.size);
+    setIsAnalyzing(true);
+    setIsComplete(false);
+
+    try {
+      const result = await processFile(lastUploadedFile);
+      
+      if (result.success && result.matches.length > 0) {
+        onMatchesFound(result.matches);
+        toast({
+          title: "Matches Found!",
+          description: `Found ${result.matches.length} song(s) using your beat`,
+        });
+      } else {
+        toast({
+          title: "No Matches Found",
+          description: "We couldn't find any songs using this beat.",
+        });
+      }
+
+      setIsComplete(true);
+    } catch (error) {
+      console.error('Error in re-search:', error);
+      toast({
+        title: "Re-search Failed",
+        description: "Unable to re-search. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -486,14 +570,25 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
               <Check className="w-8 h-8 text-primary" />
               <p className="text-xl font-bold">Complete!</p>
             </div>
-            <Button
-              onClick={handleUploadClick}
-              variant="outline"
-              size="lg"
-              className="mt-4"
-            >
-              Upload Another
-            </Button>
+            <div className="flex gap-3 justify-center flex-wrap">
+              {lastUploadedFile && !isBatchMode && (
+                <Button
+                  onClick={handleResearch}
+                  variant="default"
+                  size="lg"
+                >
+                  <RotateCw className="w-4 h-4 mr-2" />
+                  Re-search Same Beat
+                </Button>
+              )}
+              <Button
+                onClick={handleUploadClick}
+                variant="outline"
+                size="lg"
+              >
+                Upload Another
+              </Button>
+            </div>
           </div>
         )}
       </div>
