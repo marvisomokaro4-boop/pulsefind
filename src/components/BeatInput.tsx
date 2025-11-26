@@ -99,10 +99,10 @@ const BeatInput = ({ onMatchesFound, onBatchResults, checkUploadLimit, debugMode
       }
 
       const data = await response.json();
-      const allMatches = data.success ? data.matches : [];
+      const allMatches = data.matches || [];
 
       // Save to database
-      if (data.success || allMatches.length > 0) {
+      if (allMatches.length > 0) {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
