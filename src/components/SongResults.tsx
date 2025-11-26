@@ -58,6 +58,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
   const [minConfidence, setMinConfidence] = useState(50);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [matchingMode, setMatchingMode] = useState<'strict' | 'loose'>('strict');
+  const [expandedMatchIndex, setExpandedMatchIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { plan } = useSubscription();
@@ -323,11 +324,12 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
         {displayedMatches.map((match, index) => (
           <Card
             key={`${match.title}-${match.artist}-${index}`}
-            className={`overflow-hidden bg-card transition-all duration-300 group relative shadow-lg hover:shadow-xl ${
+            onClick={() => setExpandedMatchIndex(expandedMatchIndex === index ? null : index)}
+            className={`overflow-hidden bg-card transition-all duration-300 group relative shadow-lg hover:shadow-xl cursor-pointer ${
               match.confidence && match.confidence < 70 
                 ? 'border-2 border-muted/60 hover:border-muted' 
                 : 'border-2 border-primary/20 hover:border-primary/40 hover:scale-[1.02]'
-            }`}
+            } ${expandedMatchIndex === index ? 'ring-2 ring-primary' : ''}`}
           >
             {isAnonymous && (
               <div className="absolute inset-0 backdrop-blur-sm bg-background/60 z-10 flex items-center justify-center">
@@ -482,13 +484,93 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                 </div>
               </div>
             )}
+
+            {/* Detection Sources Details - Expandable */}
+            {expandedMatchIndex === index && (
+              <div className="px-4 py-3 bg-primary/5 dark:bg-primary/10 border-t border-primary/20 animate-fade-in">
+                <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <Music className="w-4 h-4 text-primary" />
+                  Detection Sources
+                </h4>
+                <div className="space-y-2 text-xs">
+                  {match.sources && match.sources.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <p className="text-muted-foreground font-medium">
+                        Detected by {match.sources.length} source{match.sources.length !== 1 ? 's' : ''}:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {match.sources.map((source, idx) => (
+                          <Badge 
+                            key={idx} 
+                            variant="secondary"
+                            className={`text-xs ${
+                              source === 'ACRCloud' ? 'bg-blue-500/20 border-blue-500/40 text-blue-700 dark:text-blue-300' :
+                              source === 'YouTube' ? 'bg-red-500/20 border-red-500/40 text-red-700 dark:text-red-300' :
+                              source === 'Spotify' ? 'bg-green-500/20 border-green-500/40 text-green-700 dark:text-green-300' :
+                              source === 'Local Cache' ? 'bg-purple-500/20 border-purple-500/40 text-purple-700 dark:text-purple-300' :
+                              'bg-muted/50 border-muted'
+                            }`}
+                          >
+                            {source}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2">
+                      <Badge variant="secondary" className="bg-blue-500/20 border-blue-500/40 text-blue-700 dark:text-blue-300 text-xs">
+                        {match.source || 'ACRCloud'}
+                      </Badge>
+                      {match.cached && (
+                        <Badge variant="secondary" className="bg-purple-500/20 border-purple-500/40 text-purple-700 dark:text-purple-300 text-xs">
+                          ⚡ Local Cache
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  
+                  {match.segment && (
+                    <div className="pt-2 border-t border-border/50">
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Segment:</span> {match.segment}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {match.confidence && (
+                    <div className={match.segment ? '' : 'pt-2 border-t border-border/50'}>
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Confidence:</span>{' '}
+                        <span className={match.confidence >= 70 ? 'text-primary font-semibold' : 'text-muted-foreground'}>
+                          {Math.round(match.confidence)}%
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {match.match_quality && (
+                    <div>
+                      <p className="text-muted-foreground">
+                        <span className="font-medium">Match Quality:</span>{' '}
+                        <span className="capitalize">{match.match_quality}</span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground/80 mt-3 pt-2 border-t border-border/50">
+                  💡 Click card again to close
+                </p>
+              </div>
+            )}
             
             <div className="p-4 space-y-3">
               {match.preview_url && (
-                <AudioPreview 
-                  previewUrl={match.preview_url}
-                  trackName={match.title}
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <AudioPreview 
+                    previewUrl={match.preview_url}
+                    trackName={match.title}
+                  />
+                </div>
               )}
               
               {match.spotify_url && (
@@ -496,6 +578,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                   href={match.spotify_url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-[#1DB954] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
                 >
                   Open in Spotify
@@ -508,6 +591,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                   href={`https://open.spotify.com/track/${match.spotify_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-[#1DB954] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
                 >
                   Open in Spotify
@@ -520,6 +604,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                   href={match.apple_music_url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-gradient-to-r from-[#FA243C] to-[#FA5C7C] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
                 >
                   Open in Apple Music
@@ -532,6 +617,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                   href={`https://music.apple.com/song/${match.apple_music_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-gradient-to-r from-[#FA243C] to-[#FA5C7C] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
                 >
                   Open in Apple Music
@@ -544,6 +630,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                   href={match.youtube_url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-gradient-to-r from-[#FF0000] to-[#CC0000] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
                 >
                   Open in YouTube
@@ -556,6 +643,7 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
                   href={match.share_url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
                   className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
                 >
                   View Details
@@ -564,40 +652,42 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
               )}
 
               {/* Report Missing Link Button */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs"
-                  >
-                    <Flag className="w-3 h-3 mr-2" />
-                    Report Missing Link
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" className="w-56">
-                  {!match.spotify_url && (
-                    <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Spotify")}>
-                      Available on Spotify
-                    </DropdownMenuItem>
-                  )}
-                  {!match.apple_music_url && (
-                    <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Apple Music")}>
-                      Available on Apple Music
-                    </DropdownMenuItem>
-                  )}
-                  {!match.youtube_url && (
-                    <DropdownMenuItem onClick={() => handleReportMissingLink(match, "YouTube")}>
-                      Available on YouTube
-                    </DropdownMenuItem>
-                  )}
-                  {match.spotify_url && match.apple_music_url && match.youtube_url && (
-                    <DropdownMenuItem disabled>
-                      All platforms detected
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div onClick={(e) => e.stopPropagation()}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                    >
+                      <Flag className="w-3 h-3 mr-2" />
+                      Report Missing Link
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center" className="w-56">
+                    {!match.spotify_url && (
+                      <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Spotify")}>
+                        Available on Spotify
+                      </DropdownMenuItem>
+                    )}
+                    {!match.apple_music_url && (
+                      <DropdownMenuItem onClick={() => handleReportMissingLink(match, "Apple Music")}>
+                        Available on Apple Music
+                      </DropdownMenuItem>
+                    )}
+                    {!match.youtube_url && (
+                      <DropdownMenuItem onClick={() => handleReportMissingLink(match, "YouTube")}>
+                        Available on YouTube
+                      </DropdownMenuItem>
+                    )}
+                    {match.spotify_url && match.apple_music_url && match.youtube_url && (
+                      <DropdownMenuItem disabled>
+                        All platforms detected
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </Card>
         ))}
