@@ -37,7 +37,7 @@ interface Match {
   preview_url?: string;
   popularity?: number;
   is_ai_suggestion?: boolean;
-  ai_confidence?: 'high' | 'medium' | 'low';
+  ai_confidence?: "high" | "medium" | "low";
   ai_reasoning?: string;
   // Debug info
   debug_info?: {
@@ -64,7 +64,7 @@ const Index = () => {
   const [monthlyUploads, setMonthlyUploads] = useState(0);
   const [debugMode, setDebugMode] = useState(false);
   const [disableDeduplication, setDisableDeduplication] = useState(false);
-  const [searchMode, setSearchMode] = useState<'beat' | 'producer-tag'>('beat');
+  const [searchMode, setSearchMode] = useState<"beat" | "producer-tag">("beat");
   const [isAnonymousScan, setIsAnonymousScan] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -104,17 +104,13 @@ const Index = () => {
       .eq("user_id", userId)
       .eq("role", "admin")
       .maybeSingle();
-    
+
     setIsAdmin(!!data);
   };
 
   const checkOnboardingStatus = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("has_seen_onboarding")
-      .eq("id", userId)
-      .single();
-    
+    const { data } = await supabase.from("profiles").select("has_seen_onboarding").eq("id", userId).single();
+
     // Show welcome modal if user hasn't seen onboarding
     if (data && !data.has_seen_onboarding) {
       setShowWelcomeModal(true);
@@ -125,26 +121,26 @@ const Index = () => {
     // Get current month's upload count
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
+
     const { data } = await supabase
       .from("beats")
       .select("id")
       .eq("user_id", userId)
       .gte("uploaded_at", firstDayOfMonth.toISOString());
-    
+
     setMonthlyUploads(data?.length || 0);
   };
 
   const checkUploadLimit = (): boolean => {
-    if (plan === 'Pro' || scansPerDay === -1) {
+    if (plan === "Pro" || scansPerDay === -1) {
       return true; // No limit for Pro users
     }
-    
+
     if (monthlyUploads >= 1) {
       setShowUpgradeModal(true);
       return false;
     }
-    
+
     return true;
   };
 
@@ -180,7 +176,7 @@ const Index = () => {
     return (
       <main className="min-h-screen bg-background">
         <LandingHero />
-        
+
         {/* Promotional Counter */}
         <section className="container mx-auto px-4 -mt-8 mb-8 relative z-10">
           <div className="max-w-2xl mx-auto">
@@ -204,12 +200,12 @@ const Index = () => {
           <div className="flex flex-wrap gap-2 items-center">
             {!isLoading && (
               <Button
-                variant={plan === 'Free' ? 'default' : 'outline'}
+                variant={plan === "Free" ? "default" : "outline"}
                 size="sm"
                 onClick={() => navigate("/pricing")}
                 className="text-xs sm:text-sm"
               >
-                {plan === 'Free' ? (
+                {plan === "Free" ? (
                   <>
                     <Crown className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     <span className="hidden sm:inline">Upgrade</span>
@@ -217,28 +213,20 @@ const Index = () => {
                   </>
                 ) : (
                   <>
-                    <Badge variant="secondary" className="mr-1 sm:mr-2 text-xs">{plan}</Badge>
-                    <span className="hidden sm:inline">{scansPerDay === -1 ? 'Unlimited' : `${scansPerDay}/day`}</span>
+                    <Badge variant="secondary" className="mr-1 sm:mr-2 text-xs">
+                      {plan}
+                    </Badge>
+                    <span className="hidden sm:inline">{scansPerDay === -1 ? "Unlimited" : `${scansPerDay}/day`}</span>
                   </>
                 )}
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/history")}
-              className="text-xs sm:text-sm"
-            >
+            <Button variant="outline" size="sm" onClick={() => navigate("/history")} className="text-xs sm:text-sm">
               <HistoryIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">History</span>
             </Button>
             {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/admin")}
-                className="text-xs sm:text-sm"
-              >
+              <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="text-xs sm:text-sm">
                 <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Admin</span>
               </Button>
@@ -270,7 +258,7 @@ const Index = () => {
             </p>
           </div>
         </div>
-        
+
         {/* Animated wave bars */}
         <div className="absolute bottom-0 left-0 right-0 flex justify-center items-end gap-1 h-16 opacity-30 px-4">
           {Array.from({ length: 50 }).map((_, i) => (
@@ -289,23 +277,19 @@ const Index = () => {
 
       {/* Beat Input Section */}
       <section className="container mx-auto px-4 py-16">
-        {plan === 'Free' && (
+        {plan === "Free" && (
           <div className="mb-6 text-center">
             <Badge variant={monthlyUploads >= 1 ? "destructive" : "secondary"}>
               {monthlyUploads}/1 uploads this month
             </Badge>
           </div>
         )}
-        
+
         {/* Debug Mode Toggle */}
         {isAdmin && (
           <div className="mb-6 space-y-4">
             <div className="flex items-center justify-center gap-2">
-              <Switch
-                id="debug-mode"
-                checked={debugMode}
-                onCheckedChange={setDebugMode}
-              />
+              <Switch id="debug-mode" checked={debugMode} onCheckedChange={setDebugMode} />
               <Label htmlFor="debug-mode" className="flex items-center gap-2 cursor-pointer">
                 <Bug className="w-4 h-4" />
                 Debug Mode
@@ -313,20 +297,19 @@ const Index = () => {
             </div>
             {debugMode && (
               <div className="flex items-center justify-center gap-2">
-                <Switch
-                  id="disable-dedup"
-                  checked={disableDeduplication}
-                  onCheckedChange={setDisableDeduplication}
-                />
-                <Label htmlFor="disable-dedup" className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground">
+                <Switch id="disable-dedup" checked={disableDeduplication} onCheckedChange={setDisableDeduplication} />
+                <Label
+                  htmlFor="disable-dedup"
+                  className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground"
+                >
                   Show Raw Results (No Deduplication)
                 </Label>
               </div>
             )}
           </div>
         )}
-        
-        <BeatInput 
+
+        <BeatInput
           onMatchesFound={handleMatchesFound}
           onBatchResults={handleBatchResults}
           checkUploadLimit={checkUploadLimit}
@@ -336,24 +319,18 @@ const Index = () => {
         />
       </section>
 
-      <UpgradeModal 
-        open={showUpgradeModal}
-        onOpenChange={setShowUpgradeModal}
-      />
+      <UpgradeModal open={showUpgradeModal} onOpenChange={setShowUpgradeModal} />
 
-      <WelcomeModal
-        open={showWelcomeModal}
-        onClose={() => setShowWelcomeModal(false)}
-      />
+      <WelcomeModal open={showWelcomeModal} onClose={() => setShowWelcomeModal(false)} />
 
       {/* Results Section */}
       {hasSearched && (
         <section className="container mx-auto px-4 pb-16 space-y-6">
           {matches.length > 0 && (
-            <SongResults 
-              matches={matches} 
-              debugMode={debugMode} 
-              searchMode={searchMode} 
+            <SongResults
+              matches={matches}
+              debugMode={debugMode}
+              searchMode={searchMode}
               isAnonymous={isAnonymousScan}
             />
           )}
