@@ -17,12 +17,13 @@ const Pricing = () => {
     {
       name: 'Free',
       price: '$0',
-      period: 'forever',
-      scans: '3 scans/day',
+      period: 'per month',
+      scans: '1 upload/month',
       features: [
-        'Basic recognition',
-        'Song title, artist, match score',
-        'Limited preview of results',
+        'Basic scan only',
+        'Partial results',
+        'No auto-alerts',
+        'No downloadable proof',
       ],
       cta: 'Current Plan',
       priceId: null,
@@ -32,32 +33,19 @@ const Pricing = () => {
       name: 'Pro',
       price: '$10',
       period: 'per month',
-      scans: '50 scans/day',
+      scans: 'Unlimited uploads',
       features: [
-        'Full recognition with confidence score',
-        'Similar song / vibe matching',
-        'Sample / copyright detection',
-        '7-day free trial',
+        'Unlimited uploads & scans',
+        'Full deep scan',
+        'Auto alerts when match found',
+        'Full result list',
+        'Downloadable match reports',
+        'Full scan history',
       ],
       cta: 'Upgrade to Pro',
       priceId: 'price_1SXUU4INPuTkGHVySZpLst8A',
-      trial: true,
-      popular: true,
-    },
-    {
-      name: 'Elite',
-      price: '$20',
-      period: 'per month',
-      scans: 'Unlimited scans',
-      features: [
-        'Everything in Pro',
-        'Bulk upload / scan',
-        'Notifications if beat is used',
-        'Priority support',
-      ],
-      cta: 'Upgrade to Elite',
-      priceId: 'price_1SXUUHINPuTkGHVyMFqO7sPW',
       trial: false,
+      popular: true,
     },
   ];
 
@@ -152,7 +140,7 @@ const Pricing = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto mb-12">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
           {plans.map((plan) => {
             const isCurrentPlan = plan.name === currentPlan;
             const isPaidPlan = plan.name !== 'Free';
