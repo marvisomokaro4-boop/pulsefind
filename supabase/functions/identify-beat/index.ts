@@ -1026,8 +1026,8 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
     };
     
     let results = uniqueTracks.filter(track => {
-      // Rule 1: Minimum confidence score of 70 (lowered from 85)
-      if (track.confidence < 70) {
+      // Rule 1: Minimum confidence score of 40 (balanced threshold)
+      if (track.confidence < 40) {
         validationStats.lowConfidence++;
         console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Low confidence (${track.confidence}%)`);
         return false;
@@ -1040,15 +1040,15 @@ async function identifyWithACRCloudMultiSegment(arrayBuffer: ArrayBuffer, fileNa
         return false;
       }
       
-      // Rule 3: Duration validation (if available)
-      if (track.duration_diff && track.duration_diff > 5) {
+      // Rule 3: Duration validation (if available) - allow reasonable variation
+      if (track.duration_diff && track.duration_diff > 10) {
         validationStats.durationMismatch++;
         console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Duration mismatch (${track.duration_diff.toFixed(1)}s diff)`);
         return false;
       }
       
-      // Rule 4: Played duration must be >= 10 seconds (if available)
-      if (track.played_duration && track.played_duration < 10) {
+      // Rule 4: Played duration must be >= 8 seconds (if available)
+      if (track.played_duration && track.played_duration < 8) {
         validationStats.shortPlayDuration++;
         console.log(`❌ Rejected: "${track.title}" by ${track.artist} - Insufficient match duration (${track.played_duration.toFixed(1)}s)`);
         return false;
