@@ -183,7 +183,7 @@ function selectSegmentsStandard(
     
     segments.push({
       offset: Math.max(0, bestPeakOffset),
-      duration: 30 * 1024, // ~30 seconds
+      duration: 60 * 1024, // ~60 seconds
       energy: peakEnergies[maxPeakIdx],
       uniqueness: analysis.spectralVariance[Math.floor(analysis.peaks[maxPeakIdx] / 22050)] || 0,
       name: 'PEAK DROP (highest energy)',
@@ -194,7 +194,7 @@ function selectSegmentsStandard(
   // Add middle segment (usually verse/hook transition)
   segments.push({
     offset: Math.floor(fileSize * 0.4),
-    duration: 20 * 1024, // ~20 seconds
+    duration: 40 * 1024, // ~40 seconds
     energy: analysis.avgEnergy,
     uniqueness: 0.7,
     name: 'MID SECTION (40%)',
@@ -204,7 +204,7 @@ function selectSegmentsStandard(
   // Add late segment (outro/final drop)
   segments.push({
     offset: Math.floor(fileSize * 0.75),
-    duration: 15 * 1024, // ~15 seconds
+    duration: 30 * 1024, // ~30 seconds
     energy: analysis.avgEnergy * 0.8,
     uniqueness: 0.6,
     name: 'LATE SECTION (75%)',
@@ -249,7 +249,7 @@ function selectSegmentsDeepScan(
     const peak = peakData[i];
     segments.push({
       offset: Math.max(0, peak.offset),
-      duration: 30 * 1024,
+      duration: 60 * 1024,
       energy: peak.energy,
       uniqueness: analysis.spectralVariance[peak.windowIdx] || 0,
       name: `PEAK ${i + 1} (high energy)`,
@@ -262,7 +262,7 @@ function selectSegmentsDeepScan(
   positions.forEach((pos, idx) => {
     segments.push({
       offset: Math.floor(fileSize * pos),
-      duration: 20 * 1024,
+      duration: 40 * 1024,
       energy: analysis.avgEnergy * (1 - pos * 0.3), // Decrease priority for later segments
       uniqueness: 0.6,
       name: `COVERAGE ${Math.floor(pos * 100)}%`,
