@@ -363,7 +363,23 @@ interface AudioQualityScore {
 }
 
 function analyzeAudioQuality(audioData: ArrayBuffer, offset: number, length: number): AudioQualityScore {
-  const samples = new Int16Array(audioData.slice(offset, offset + length));
+  // Ensure length is even (multiple of 2) for Int16Array
+  const adjustedLength = Math.floor(length / 2) * 2;
+  
+  if (adjustedLength === 0) {
+    return {
+      score: 0,
+      rms: 0,
+      peakLevel: 0,
+      zeroCrossingRate: 0,
+      energyVariance: 0,
+      isSilent: true,
+      isNoisy: false,
+      isUsable: false
+    };
+  }
+  
+  const samples = new Int16Array(audioData.slice(offset, offset + adjustedLength));
   const sampleCount = samples.length;
   
   if (sampleCount === 0) {
