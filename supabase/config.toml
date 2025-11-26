@@ -29,3 +29,7 @@ verify_jwt = true
 
 [functions.generate-logo-options]
 verify_jwt = true
+
+[functions.generate-evidence-package]
+verify_jwt = true
+
