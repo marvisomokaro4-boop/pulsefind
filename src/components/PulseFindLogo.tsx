@@ -29,13 +29,17 @@ export const PulseFindLogo = ({
   useEffect(() => {
     const generateLogo = async () => {
       try {
-        // Check localStorage first
-        const cachedLogo = localStorage.getItem('pulsefind-logo');
+        // Version the cache to ensure all devices get the latest logo
+        const LOGO_VERSION = 'v2';
+        const cachedLogo = localStorage.getItem(`pulsefind-logo-${LOGO_VERSION}`);
         if (cachedLogo) {
           setLogoUrl(cachedLogo);
           setIsLoading(false);
           return;
         }
+        
+        // Clear old cached versions
+        localStorage.removeItem('pulsefind-logo');
 
         const { data, error } = await supabase.functions.invoke('generate-logo', {
           body: {
@@ -47,8 +51,9 @@ export const PulseFindLogo = ({
 
         if (data?.imageUrl) {
           setLogoUrl(data.imageUrl);
-          // Cache the logo
-          localStorage.setItem('pulsefind-logo', data.imageUrl);
+          // Cache the logo with version
+          const LOGO_VERSION = 'v2';
+          localStorage.setItem(`pulsefind-logo-${LOGO_VERSION}`, data.imageUrl);
         }
       } catch (error) {
         console.error('Error generating logo:', error);
