@@ -28,6 +28,7 @@ interface Match {
   album_cover_url?: string;
   preview_url?: string;
   popularity?: number;
+  match_quality?: 'high' | 'medium' | 'low';
   debug_info?: {
     raw_results_count?: number;
     segments_found?: string[];

@@ -33,6 +33,7 @@ interface Match {
   album_cover_url?: string;
   preview_url?: string;
   popularity?: number;
+  match_quality?: 'high' | 'medium' | 'low';
   debug_info?: {
     raw_results_count?: number;
     segments_found?: string[];
@@ -228,6 +229,22 @@ const SongResults = ({ matches, debugMode = false }: SongResultsProps) => {
                   >
                     <Shield className="w-3 h-3 mr-1" />
                     {Math.round(match.confidence)}%
+                  </Badge>
+                )}
+                {match.match_quality && (
+                  <Badge 
+                    variant="secondary"
+                    className={`backdrop-blur text-xs ${
+                      match.match_quality === 'high' 
+                        ? 'bg-green-500/20 border-green-500/30 text-green-700 dark:text-green-300' 
+                        : match.match_quality === 'medium'
+                        ? 'bg-yellow-500/20 border-yellow-500/30 text-yellow-700 dark:text-yellow-300'
+                        : 'bg-orange-500/20 border-orange-500/30 text-orange-700 dark:text-orange-300'
+                    }`}
+                  >
+                    {match.match_quality === 'high' ? '🎯 High Match' : 
+                     match.match_quality === 'medium' ? '⚡ Medium Match' : 
+                     '💡 Low Match'}
                   </Badge>
                 )}
                 {match.popularity !== undefined && match.popularity !== null && (
