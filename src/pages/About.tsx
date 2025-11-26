@@ -59,6 +59,9 @@ const About = () => {
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           The ultimate tool for producers to discover which songs use their beats across all major streaming platforms
         </p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Created by Marvelous
+        </p>
       </div>
 
       <div className="space-y-6">
