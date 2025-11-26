@@ -10,8 +10,11 @@ import { PulseFindLogo } from "@/components/PulseFindLogo";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetPassword, setIsResetPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -27,7 +30,9 @@ const Auth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResetPassword(true);
+      } else if (session) {
         navigate("/");
       }
     });
@@ -79,6 +84,61 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Check your email",
+        description: "We've sent you a password reset link.",
+      });
+      setIsForgotPassword(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated!",
+        description: "Your password has been successfully changed.",
+      });
+      setIsResetPassword(false);
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <Card className="w-full max-w-md p-8 space-y-6 bg-card/80 backdrop-blur-sm border-primary/20 shadow-lg">
@@ -86,10 +146,20 @@ const Auth = () => {
           <PulseFindLogo size="lg" />
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              {isLogin ? "Welcome Back" : "Get Started"}
+              {isResetPassword
+                ? "Reset Password"
+                : isForgotPassword
+                ? "Forgot Password"
+                : isLogin
+                ? "Welcome Back"
+                : "Get Started"}
             </h1>
             <p className="text-muted-foreground">
-              {isLogin
+              {isResetPassword
+                ? "Enter your new password below"
+                : isForgotPassword
+                ? "Enter your email and we'll send you a reset link"
+                : isLogin
                 ? "Sign in to track your beats across all platforms"
                 : "Create your account to discover where your beats are being used"}
             </p>
@@ -100,7 +170,68 @@ const Auth = () => {
           </div>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-4">
+        {isResetPassword ? (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                disabled={loading}
+                minLength={6}
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating password...
+                </>
+              ) : (
+                "Update Password"
+              )}
+            </Button>
+          </form>
+        ) : isForgotPassword ? (
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending reset link...
+                </>
+              ) : (
+                "Send Reset Link"
+              )}
+            </Button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(false)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                disabled={loading}
+              >
+                Back to sign in
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleAuth} className="space-y-4">
           <div className="space-y-2">
             <Input
               type="email"
@@ -124,30 +255,48 @@ const Auth = () => {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {isLogin ? "Signing in..." : "Creating account..."}
-              </>
-            ) : (
-              <>{isLogin ? "Sign In" : "Sign Up"}</>
-            )}
-          </Button>
-        </form>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isLogin ? "Signing in..." : "Creating account..."}
+                </>
+              ) : (
+                <>{isLogin ? "Sign In" : "Sign Up"}</>
+              )}
+            </Button>
+          </form>
+        )}
 
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            disabled={loading}
-          >
-            {isLogin
-              ? "Don't have an account? Sign up"
-              : "Already have an account? Sign in"}
-          </button>
-        </div>
+        {!isResetPassword && !isForgotPassword && (
+          <>
+            {isLogin && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsForgotPassword(true)}
+                  className="text-sm text-primary hover:text-primary/80 transition-colors"
+                  disabled={loading}
+                >
+                  Forgot your password?
+                </button>
+              </div>
+            )}
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                disabled={loading}
+              >
+                {isLogin
+                  ? "Don't have an account? Sign up"
+                  : "Already have an account? Sign in"}
+              </button>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
