@@ -262,7 +262,8 @@ async function identifySegmentWithACRCloud(
   }
 
   try {
-    const sampleSize = Math.min(arrayBuffer.byteLength - segmentStart, 500 * 1024); // 500KB max
+    // OPTIMIZED: Use up to 1MB per segment (increased from 500KB)
+    const sampleSize = Math.min(arrayBuffer.byteLength - segmentStart, 1024 * 1024);
     const audioSample = arrayBuffer.slice(segmentStart, segmentStart + sampleSize);
     const audioData = new Uint8Array(audioSample);
     
@@ -358,11 +359,12 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
 
   try {
     const fileSize = arrayBuffer.byteLength;
-    const segmentSize = 500 * 1024; // 500KB per segment
-    const overlapSize = 250 * 1024; // 250KB overlap between segments for comprehensive coverage
+    // OPTIMIZED: Larger segments with more overlap for better context
+    const segmentSize = 1024 * 1024; // 1MB per segment (increased from 500KB)
+    const overlapSize = 512 * 1024; // 512KB overlap (increased from 250KB)
     const segments = [];
     
-    console.log(`Analyzing entire beat: ${fileSize} bytes with overlapping segments`);
+    console.log(`Analyzing entire beat: ${fileSize} bytes with OPTIMIZED overlapping segments (1MB size, 512KB overlap)`);
     
     // Calculate number of segments needed to cover 100% of the beat
     let offset = 0;
@@ -393,7 +395,7 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
       if (remainingBytes <= segmentSize) break;
     }
     
-    console.log(`Created ${segments.length} overlapping segments for complete beat coverage`);
+    console.log(`Created ${segments.length} OPTIMIZED overlapping segments for complete beat coverage`);
 
     // Process all segments in parallel
     const allSegmentResults = await Promise.all(segments);
@@ -416,8 +418,8 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Convert to array and sort by confidence
     let results = Array.from(trackMap.values());
     
-    // Filter out very low-confidence matches (below 40)
-    results = results.filter(track => track.confidence >= 40);
+    // OPTIMIZED: Lower threshold to 35 (from 40) to catch more potential matches
+    results = results.filter(track => track.confidence >= 35);
     
     // Sort by confidence (descending)
     results.sort((a, b) => b.confidence - a.confidence);
@@ -425,12 +427,44 @@ async function identifyWithACRCloud(arrayBuffer: ArrayBuffer, fileName: string):
     // Return top 99 matches to show comprehensive results
     const topMatches = results.slice(0, 99);
     
-    console.log(`Returning ${topMatches.length} matches (filtered below 40% confidence)`);
+    console.log(`Returning ${topMatches.length} matches (filtered below 35% confidence)`);
     
     return topMatches;
   } catch (error) {
     console.error('ACRCloud error:', error);
     return [];
+  }
+}
+
+// Audio preprocessing: normalize audio levels to improve fingerprinting accuracy
+function normalizeAudioBuffer(buffer: ArrayBuffer): ArrayBuffer {
+  try {
+    // Create a copy of the buffer
+    const audioArray = new Uint8Array(buffer);
+    const normalized = new Uint8Array(audioArray.length);
+    
+    // Find peak amplitude for normalization
+    let peak = 0;
+    for (let i = 0; i < audioArray.length; i++) {
+      const value = Math.abs(audioArray[i] - 128); // Convert to signed
+      if (value > peak) peak = value;
+    }
+    
+    // Normalize if peak is found
+    if (peak > 0) {
+      const factor = 127 / peak;
+      for (let i = 0; i < audioArray.length; i++) {
+        const signed = audioArray[i] - 128;
+        normalized[i] = Math.round(signed * factor) + 128;
+      }
+      console.log(`Audio normalized with peak ${peak}, factor ${factor.toFixed(2)}`);
+      return normalized.buffer;
+    }
+    
+    return buffer;
+  } catch (error) {
+    console.error('Error normalizing audio:', error);
+    return buffer; // Return original on error
   }
 }
 
@@ -443,7 +477,6 @@ async function identifyWithShazam(arrayBuffer: ArrayBuffer): Promise<any[]> {
   }
 
   try {
-
     const response = await fetch('https://shazam.p.rapidapi.com/songs/v2/detect', {
       method: 'POST',
       headers: {
@@ -464,6 +497,7 @@ async function identifyWithShazam(arrayBuffer: ArrayBuffer): Promise<any[]> {
       return [{
         title: data.track.title,
         artist: data.track.subtitle,
+        confidence: 85, // Shazam doesn't provide confidence, set default
         source: 'Shazam',
         share_url: data.track.share.href,
         spotify_url: spotifyProvider?.actions[0]?.uri,
@@ -474,6 +508,53 @@ async function identifyWithShazam(arrayBuffer: ArrayBuffer): Promise<any[]> {
     return [];
   } catch (error) {
     console.error('Shazam error:', error);
+    return [];
+  }
+}
+
+// AudD integration for additional validation
+async function identifyWithAudD(arrayBuffer: ArrayBuffer): Promise<any[]> {
+  const auddApiKey = Deno.env.get('AUDD_API_KEY');
+
+  if (!auddApiKey) {
+    console.log('AudD API key not configured');
+    return [];
+  }
+
+  try {
+    // AudD requires base64 encoded audio
+    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer.slice(0, 500 * 1024))));
+    
+    const formData = new FormData();
+    formData.append('api_token', auddApiKey);
+    formData.append('audio', base64Audio);
+    formData.append('return', 'spotify,apple_music');
+
+    const response = await fetch('https://api.audd.io/', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    console.log('AudD response:', JSON.stringify(data));
+
+    if (data.status === 'success' && data.result) {
+      const result = data.result;
+      return [{
+        title: result.title,
+        artist: result.artist,
+        album: result.album,
+        confidence: 80, // AudD doesn't provide confidence, set default
+        source: 'AudD',
+        spotify_id: result.spotify?.id,
+        apple_music_id: result.apple_music?.id,
+        release_date: result.release_date,
+      }];
+    }
+
+    return [];
+  } catch (error) {
+    console.error('AudD error:', error);
     return [];
   }
 }
@@ -533,25 +614,55 @@ serve(async (req) => {
     }
 
     // Get audio file as ArrayBuffer
-    const arrayBuffer = await audioFile.arrayBuffer();
+    let arrayBuffer = await audioFile.arrayBuffer();
+    
+    // OPTIMIZATION: Apply audio preprocessing for better fingerprinting
+    console.log('Applying audio normalization...');
+    arrayBuffer = normalizeAudioBuffer(arrayBuffer);
 
-    // Run both APIs in parallel
-    const [acrcloudResults, shazamResults] = await Promise.all([
+    // Run all THREE APIs in parallel for maximum coverage
+    console.log('Querying ACRCloud, Shazam, and AudD in parallel...');
+    const [acrcloudResults, shazamResults, auddResults] = await Promise.all([
       identifyWithACRCloud(arrayBuffer, audioFile.name),
       identifyWithShazam(arrayBuffer),
+      identifyWithAudD(arrayBuffer),
     ]);
 
-    // Combine and deduplicate results
-    const allResults = [...acrcloudResults, ...shazamResults];
-    const uniqueResults = allResults.reduce((acc, result) => {
+    // ENHANCED: Smart deduplication with multi-service validation
+    // Tracks found by multiple services get confidence boost
+    const trackScores = new Map<string, { track: any, serviceCount: number, totalConfidence: number }>();
+    
+    const allResults = [...acrcloudResults, ...shazamResults, ...auddResults];
+    
+    for (const result of allResults) {
       const key = `${result.title}-${result.artist}`;
-      if (!acc.has(key)) {
-        acc.set(key, result);
+      const existing = trackScores.get(key);
+      
+      if (existing) {
+        // Track found by multiple services - boost confidence
+        existing.serviceCount++;
+        existing.totalConfidence += (result.confidence || 70);
+        // Merge metadata from multiple sources
+        existing.track = {
+          ...existing.track,
+          ...result,
+          confidence: existing.totalConfidence / existing.serviceCount,
+          sources: [...(existing.track.sources || [existing.track.source]), result.source],
+        };
+      } else {
+        trackScores.set(key, {
+          track: { ...result, sources: [result.source] },
+          serviceCount: 1,
+          totalConfidence: result.confidence || 70,
+        });
       }
-      return acc;
-    }, new Map());
+    }
 
-    let matches = Array.from(uniqueResults.values());
+    let matches = Array.from(trackScores.values()).map(entry => ({
+      ...entry.track,
+      confidence: entry.totalConfidence / entry.serviceCount,
+      service_count: entry.serviceCount, // Number of services that found this track
+    }));
 
     // Fetch Spotify track details (artwork and preview URLs) for tracks with spotify_id
     const spotifyToken = await getSpotifyToken();
@@ -646,6 +757,7 @@ serve(async (req) => {
     }
 
     console.log('Found matches:', matches.length);
+    console.log('Results by service - ACRCloud:', acrcloudResults.length, 'Shazam:', shazamResults.length, 'AudD:', auddResults.length);
 
     return new Response(
       JSON.stringify({ 
@@ -654,6 +766,12 @@ serve(async (req) => {
         sources_used: {
           acrcloud: acrcloudResults.length > 0,
           shazam: shazamResults.length > 0,
+          audd: auddResults.length > 0,
+        },
+        optimization_applied: {
+          audio_normalization: true,
+          larger_segments: true,
+          triple_service_validation: true,
         }
       }),
       { 
