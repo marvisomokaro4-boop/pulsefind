@@ -306,12 +306,6 @@ const SongResults = ({ matches, debugMode = false, searchMode = 'beat', isAnonym
         </Button>
       </div>
 
-      
-      <MatchingModeToggle 
-        mode={matchingMode}
-        onModeChange={handleModeChange}
-      />
-
       <ConfidenceSlider
         minConfidence={minConfidence}
         onMinConfidenceChange={setMinConfidence}
