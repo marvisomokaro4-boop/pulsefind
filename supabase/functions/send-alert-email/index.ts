@@ -143,7 +143,7 @@ serve(async (req) => {
     `;
 
     const { data, error } = await resend.emails.send({
-      from: "PulseFind Alerts <alerts@resend.dev>",
+      from: "PulseFind Alerts <alerts@pulsefind.xyz>",
       to: [email],
       subject: `🎵 New Matches Found for "${beatName}"`,
       html: emailHtml,
